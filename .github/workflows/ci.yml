@@ -18,12 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Before setup-node: its `cache: yarn` resolves the cache directory by
+      # shelling out to yarn, which has to be the Yarn 4 corepack shim rather
+      # than the runner's global Yarn 1.
+      - run: corepack enable
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: yarn
-
-      - run: corepack enable
 
       - name: Install
         run: yarn install --immutable
@@ -72,12 +75,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - run: corepack enable
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: yarn
-
-      - run: corepack enable
 
       - name: Install
         run: yarn install --immutable
