@@ -24,15 +24,15 @@ curl 'http://localhost:9000/store/meilisearch/products?query=shirt&region_id=reg
   -H 'x-publishable-api-key: pk_...'
 ```
 
-| Parameter        | Description                                                                 |
-| ---------------- | --------------------------------------------------------------------------- |
-| `query`          | Free text. **Without it the route behaves exactly like `/store/products`.** |
-| `index`          | The index to query. Default `product`.                                      |
+| Parameter        | Description                                                                  |
+| ---------------- | ---------------------------------------------------------------------------- |
+| `query`          | Free text. **Without it the route behaves exactly like `/store/products`.**  |
+| `index`          | The index to query. Default `product`.                                       |
 | `language`       | The analyzer to tokenize the query with, e.g. `fra`. Not a content selector. |
-| `locale`         | Native Medusa. Which language the products come back in, e.g. `fr-FR`.      |
-| `semanticSearch` | `true` to search through an embedder.                                       |
-| `semanticRatio`  | `0` keyword … `1` semantic. Default `0.5`.                                  |
-| `embedder`       | Which embedder to use. Default `default`.                                   |
+| `locale`         | Native Medusa. Which language the products come back in, e.g. `fr-FR`.       |
+| `semanticSearch` | `true` to search through an embedder.                                        |
+| `semanticRatio`  | `0` keyword … `1` semantic. Default `0.5`.                                   |
+| `embedder`       | Which embedder to use. Default `default`.                                    |
 
 Every native parameter works alongside these — `fields`, `region_id`, `currency_code`, `category_id`, `collection_id`, `order`, `limit`, `offset`.
 

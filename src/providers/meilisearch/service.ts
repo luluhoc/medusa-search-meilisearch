@@ -1,6 +1,6 @@
 import { Logger, SearchTypes } from '@medusajs/types'
 import { AbstractSearchProviderService, MedusaError } from '@medusajs/utils'
-import { EnqueuedTask, Index, MeiliSearch, MeiliSearchApiError, Task, TaskStatus } from 'meilisearch'
+import { EnqueuedTask, Index, IndexSwap, MeiliSearch, MeiliSearchApiError, Task, TaskStatus } from 'meilisearch'
 import { MEILISEARCH_PROVIDER_KEY, MeilisearchProviderOptions } from './types'
 import { assertIndexSupported, buildIndexPlan } from './utils/definition'
 import { toMeilisearchDocument } from './utils/documents'
@@ -136,7 +136,12 @@ export class MeilisearchSearchProviderService extends AbstractSearchProviderServ
     // the live name yet, so an empty index stands in for the one being replaced.
     await this.ensureIndex(alias, await this.primaryKeyOf(this.client_.index(index)))
 
-    const swap = await this.client_.swapIndexes([{ indexes: [alias, index], rename: false }])
+    // `rename` only reached the swap route in Meilisearch 1.20, and older servers
+    // reject the unknown field outright. Leaving it off is exactly `rename: false`
+    // — a plain swap — and keeps this working from 1.12 up. The cast is only there
+    // because the client's type declares the field as required.
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-type-assertion
+    const swap = await this.client_.swapIndexes([{ indexes: [alias, index] } as IndexSwap])
     const settled = await this.waitForTask(this.toTask(swap))
 
     if (settled.status === 'succeeded') {
