@@ -108,6 +108,7 @@ The full walkthrough, including Docker and environment variables, is in [getting
 | [Index definitions](docs/index-definitions.md) | The field DSL, seeding, events, custom entities                     |
 | [Querying](docs/querying.md)                   | Filters, sorting, facets, counts, highlighting, and what is refused |
 | [Store API](docs/store-api.md)                 | The four HTTP endpoints and when to use which                       |
+| [Admin](docs/admin.md)                         | The product widget, and the endpoints behind it                     |
 | [Semantic search](docs/semantic-search.md)     | Embedders, hybrid search, costs and caveats                         |
 | [Recipes](docs/recipes.md)                     | Prices, multilingual indexes, admin indexes, type-ahead             |
 | [Troubleshooting](docs/troubleshooting.md)     | Why something is not indexed, and what each error means             |

@@ -22,6 +22,7 @@ import {
   StoreProductCategoriesParams,
   listProductCategoryConfig,
 } from './utils/medusa'
+import { AdminIndexedProductSchema } from './admin/meilisearch/products/[id]/route'
 import { StoreSearchCategoriesSchema } from './store/meilisearch/categories-hits/route'
 import { StoreSearchProductsSchema } from './store/meilisearch/products-hits/route'
 import './types'
@@ -138,6 +139,13 @@ export default defineMiddlewares({
       methods: ['GET'],
       matcher: '/store/meilisearch/products-hits',
       middlewares: [validateAndTransformQuery(StoreSearchProductsSchema, {})],
+    },
+    // Admin routes inherit the dashboard's own authentication from the core
+    // `/admin/*` stack, so only the search-specific query has to be validated.
+    {
+      methods: ['GET', 'POST'],
+      matcher: '/admin/meilisearch/products/:id',
+      middlewares: [validateAndTransformQuery(AdminIndexedProductSchema, {})],
     },
   ],
 })
