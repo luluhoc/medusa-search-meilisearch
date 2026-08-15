@@ -208,19 +208,19 @@ interface LocalizedIndex {
   /** The index this one is the localized copy of, e.g. `product`. */
   base: string
 
-  /** The locale its documents were read in, e.g. `fr-FR`. */
-  locale: string
+  /** The locale its documents were read in, e.g. `fr-FR`. Absent for an index holding the default language. */
+  locale?: string
 
   /** The entity it indexes, e.g. `product`. */
   entity: string
 }
 
 /**
- * Which index holds which language. Index definitions are declared by the
- * application at boot and read again by the HTTP routes on every request, so the
- * map has to outlive both; it hangs off `globalThis` under a namespaced key so
- * that two copies of this package in one dependency tree still agree, the way
- * Medusa's own module registry does.
+ * What each index holds — which entity, and in which language. Index definitions
+ * are declared by the application at boot and read again by the HTTP routes on
+ * every request, so the map has to outlive both; it hangs off `globalThis` under
+ * a namespaced key so that two copies of this package in one dependency tree
+ * still agree, the way Medusa's own module registry does.
  */
 const REGISTRY_KEY = Symbol.for('@luluhoc/medusa-search-meilisearch/localized-indexes')
 
@@ -234,7 +234,7 @@ function registry(): Registry {
   return global[REGISTRY_KEY]
 }
 
-/** Records that `index` holds `locale`. Called by the index factories. */
+/** Records what `index` holds. Called by the index factories. */
 export function registerLocalizedIndex(entry: LocalizedIndex): void {
   registry().set(entry.index, entry)
 }
@@ -242,6 +242,62 @@ export function registerLocalizedIndex(entry: LocalizedIndex): void {
 /** The locale an index was declared for, or `undefined` for a default-language one. */
 export function indexLocale(index: string): string | undefined {
   return registry().get(index)?.locale
+}
+
+/** The entity an index was declared over, or `undefined` for one this package did not declare. */
+export function indexEntity(index: string): string | undefined {
+  return registry().get(index)?.entity
+}
+
+/** One loaded index and the language it holds, as the admin routes report it. */
+export interface EntityIndex {
+  index: string
+  locale?: string
+}
+
+/**
+ * Every loaded index holding `entity` — the default-language one and each
+ * localized copy — which is what turns "is this product indexed?" into an answer
+ * per language rather than per index name.
+ *
+ * Registration is the evidence, and the naming convention is the fallback for an
+ * index declared without this package's factories: those register nothing, and a
+ * name is then all there is to go on. `available` is what the Search Module
+ * actually loaded, so a definition that was renamed or dropped is not reported.
+ */
+export function indexesForEntity({
+  available,
+  entity,
+  base,
+}: {
+  available: string[]
+  entity: string
+  base: string
+}): EntityIndex[] {
+  const indexes = registry()
+  const found: EntityIndex[] = []
+
+  for (const name of available) {
+    const entry = indexes.get(name)
+
+    if (entry) {
+      if (entry.entity === entity) {
+        found.push({ index: name, locale: entry.locale })
+      }
+
+      continue
+    }
+
+    if (name === base || name.startsWith(`${base}-`)) {
+      found.push({ index: name })
+    }
+  }
+
+  // The default-language index first, since it is the one a merchant reads as
+  // "the catalogue" and the localized copies as translations of it.
+  return found.sort((left, right) => {
+    return (left.locale ?? '').localeCompare(right.locale ?? '')
+  })
 }
 
 /**

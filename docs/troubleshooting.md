@@ -44,6 +44,14 @@ To check what the engine actually holds:
 curl 'http://localhost:7700/indexes/product/documents/prod_123' -H 'Authorization: Bearer <KEY>'
 ```
 
+**Or it is indexed and simply outranked** — a different problem with a different fix. Ask where it placed rather than whether it is there:
+
+```bash
+curl 'http://localhost:9000/admin/meilisearch/search?query=shirt&find=prod_123' -H "Authorization: Bearer $TOKEN"
+```
+
+A `rank` of `null` with `"exhausted": true` means it does not match the query at all; a position of 340 means it matches and something outranks it, which is [a ranking problem](#results-are-ranked-oddly). The [Search rank widget](admin.md#search-rank) is the same check on the product page.
+
 ## Errors you might see
 
 ### `Field "x" is not filterable on search index "product"`

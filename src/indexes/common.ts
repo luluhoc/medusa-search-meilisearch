@@ -234,17 +234,18 @@ export function defineIndexPerLocale({
 }
 
 /**
- * Records which language an index holds, so that a request naming a locale can
- * be routed to it. Every index declared with a locale registers — whether it came
- * from a fan-out over `locales` or from a factory call written by hand — because
- * routing a storefront's language is what the map is for, and an index named by
- * hand is no less the French one for having been named `produits`.
+ * Records what an index holds — which entity, and which language if it has one —
+ * so that a request naming a locale can be routed to it and the admin routes can
+ * tell a product index from a category one. Every index a factory declares
+ * registers, whether it came from a fan-out over `locales` or from a call written
+ * by hand: an index named by hand is no less the French one for having been named
+ * `produits`, and no less a product index for it either.
  *
- * `default_locale` registers the same way: an index already holding a language
- * has to answer for it, rather than let the request fall through to a localized
- * copy that would only repeat it.
+ * `default_locale` registers as the index' language the same way `locale` does:
+ * an index already holding a language has to answer for it, rather than let the
+ * request fall through to a localized copy that would only repeat it.
  */
-export function registerIndexLocale({
+export function registerIndexDefinition({
   options,
   base,
   entity,
@@ -255,15 +256,11 @@ export function registerIndexLocale({
 }): void {
   const locale = options.locale ?? options.default_locale
 
-  if (!locale) {
-    return
-  }
-
   registerLocalizedIndex({
     index: options.name ?? base,
     base,
     entity,
-    locale: normalizeLocaleTag(locale),
+    ...(locale ? { locale: normalizeLocaleTag(locale) } : {}),
   })
 }
 

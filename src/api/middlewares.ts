@@ -23,6 +23,7 @@ import {
   listProductCategoryConfig,
 } from './utils/medusa'
 import { AdminIndexedProductSchema } from './admin/meilisearch/products/[id]/route'
+import { AdminSearchSchema } from './admin/meilisearch/search/route'
 import { StoreSearchCategoriesSchema } from './store/meilisearch/categories-hits/route'
 import { StoreSearchProductsSchema } from './store/meilisearch/products-hits/route'
 import './types'
@@ -146,6 +147,11 @@ export default defineMiddlewares({
       methods: ['GET', 'POST'],
       matcher: '/admin/meilisearch/products/:id',
       middlewares: [validateAndTransformQuery(AdminIndexedProductSchema, {})],
+    },
+    {
+      methods: ['GET'],
+      matcher: '/admin/meilisearch/search',
+      middlewares: [validateAndTransformQuery(AdminSearchSchema, {})],
     },
   ],
 })

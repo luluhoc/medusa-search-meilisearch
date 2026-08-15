@@ -1,7 +1,14 @@
 import { SearchTypes } from '@medusajs/types'
 import { MedusaError } from '@medusajs/utils'
-import { indexLocale } from '../../indexes/locales'
-import { AdminIndexedDocumentResponse, AdminSearchIndexInfo } from '../admin/meilisearch/types'
+import { EntityIndex, indexEntity, indexesForEntity, indexLocale } from '../../indexes/locales'
+import {
+  AdminIndexCoverageEntry,
+  AdminIndexCoverageResponse,
+  AdminIndexedDocumentResponse,
+  AdminSearchIndexInfo,
+  AdminSearchRank,
+  AdminSearchResponse,
+} from '../admin/meilisearch/types'
 
 /** The index an admin route reads from when the request names none. */
 export const DEFAULT_INDEX = 'product'
@@ -51,6 +58,7 @@ export async function describeIndex(
   name: string,
 ): Promise<AdminSearchIndexInfo> {
   const locale = indexLocale(name) ?? null
+  const entity = indexEntity(name) ?? null
 
   try {
     const result = await search.search({
@@ -59,12 +67,12 @@ export async function describeIndex(
       search_options: { count: 'exact' },
     })
 
-    return { name, locale, document_count: result.metadata.count, error: null }
+    return { name, locale, entity, document_count: result.metadata.count, error: null }
   } catch (error) {
     // A declared index that migrations have not created yet does not exist in
     // Meilisearch, and neither does one whose engine lost its data. Reporting
     // that per index keeps one missing index from taking the listing down.
-    return { name, locale, document_count: null, error: toMessage(error) }
+    return { name, locale, entity, document_count: null, error: toMessage(error) }
   }
 }
 
@@ -87,6 +95,143 @@ export async function retrieveIndexedDocument(
   const hit = result.hits.at(0)
 
   return { index, id, indexed: hit !== undefined, document: hit?.document ?? null }
+}
+
+/**
+ * One entity as every index holding its kind has it. Each index is read on its
+ * own and reports its own failure, for the same reason the listing does: a
+ * language whose index was never migrated must not hide the languages that were.
+ *
+ * Only what the coverage view needs comes back — whether the document is there
+ * and how old it is — rather than the documents themselves, which are the same
+ * product repeated once per language.
+ */
+export async function describeCoverage(
+  search: SearchTypes.ISearchModuleService,
+  { entity, base, id }: { entity: string; base: string; id: string },
+): Promise<AdminIndexCoverageResponse> {
+  const indexes = indexesForEntity({ available: search.listIndexes(), entity, base })
+  const entries = await Promise.all(
+    indexes.map(async (entry) => {
+      return coverageEntry(search, entry, id)
+    }),
+  )
+
+  return { id, entries }
+}
+
+async function coverageEntry(
+  search: SearchTypes.ISearchModuleService,
+  { index, locale }: EntityIndex,
+  id: string,
+): Promise<AdminIndexCoverageEntry> {
+  try {
+    const { indexed, document } = await retrieveIndexedDocument(search, index, id)
+
+    return { index, locale: locale ?? null, indexed, updated_at: documentUpdatedAt(document), error: null }
+  } catch (error) {
+    return { index, locale: locale ?? null, indexed: false, updated_at: null, error: toMessage(error) }
+  }
+}
+
+/**
+ * When the indexed copy was built, read off the document rather than off the
+ * engine, which records nothing per document. A definition that does not index
+ * `updated_at` therefore dates nothing, and the caller is told so with `null`
+ * instead of being given a guess.
+ */
+function documentUpdatedAt(document: Record<string, unknown> | null): string | null {
+  const value = document?.updated_at
+
+  return typeof value === 'string' ? value : null
+}
+
+/**
+ * A search run from the dashboard, against the engine and nothing else. No
+ * database read and no pricing: the point is to see the ranking Meilisearch
+ * itself produced, which is the only thing that explains why a product is or is
+ * not where a merchant expected it.
+ */
+export async function searchIndexed(
+  search: SearchTypes.ISearchModuleService,
+  { index, query, limit, offset, facets, vector, find, scan }: AdminSearchInput,
+): Promise<AdminSearchResponse> {
+  const page: SearchTypes.SearchQuery = {
+    entity: index,
+    filters: { q: query },
+    pagination: { skip: offset, take: limit },
+    search_options: {
+      include_score: true,
+      count: 'exact',
+      ...(facets?.length ? { facets } : {}),
+      ...(vector ? { vector } : {}),
+    },
+  }
+
+  // The ranking scan is batched with the page rather than sent after it: the
+  // provider folds a `searchMany` into a single Meilisearch `multiSearch`, so
+  // asking where one product placed costs no extra round trip.
+  const results = await search.searchMany(
+    find === undefined
+      ? [page]
+      : [
+          page,
+          {
+            entity: index,
+            fields: ['id'],
+            filters: { q: query },
+            pagination: { skip: 0, take: scan },
+            ...(vector ? { search_options: { vector } } : {}),
+          },
+        ],
+  )
+  const result = results[0]
+
+  return {
+    index,
+    query: query ?? null,
+    hits: result.hits.map((hit) => {
+      return { id: hit.id, score: hit.score ?? null, document: hit.document }
+    }),
+    count: result.metadata.count,
+    processing_time_ms: result.metadata.processing_time_ms ?? null,
+    rank: find === undefined ? null : rankOf(find, results[1], scan),
+  }
+}
+
+export interface AdminSearchInput {
+  index: string
+  query?: string
+  limit: number
+  offset: number
+  facets?: string[]
+  vector?: SearchTypes.SearchVectorOptions
+
+  /** The id to report the ranking position of, when the caller asks for one. */
+  find?: string
+
+  /** How deep to look for `find` before reporting it unplaced. */
+  scan: number
+}
+
+/**
+ * Where an id placed among the hits that were scanned. Reported as a position
+ * rather than as a yes-or-no, because "it matches, at rank 340" and "it does not
+ * match at all" are different problems with different fixes.
+ */
+function rankOf(id: string, scanned: SearchTypes.SearchResult, scan: number): AdminSearchRank {
+  const position = scanned.hits.findIndex((hit) => {
+    return hit.id === id
+  })
+
+  return {
+    id,
+    position: position === -1 ? null : position + 1,
+    scanned: scanned.hits.length,
+    // Fewer hits than were asked for means the result set ended inside the scan,
+    // which is what separates "does not match" from "did not place in the first N".
+    exhausted: scanned.hits.length < scan,
+  }
 }
 
 /**

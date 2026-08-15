@@ -8,6 +8,7 @@ import test from 'node:test'
 import { localizedSearch } from '../../src/api/utils/locale'
 import {
   engineLocales,
+  indexesForEntity,
   localeFallbacks,
   localeIndexName,
   normalizeLocaleTag,
@@ -152,4 +153,24 @@ test('searches the default index in its own language when no locale was asked fo
   const resolved = localizedSearch({ search: moduleWith(['product', 'product-fr-FR']), base: 'product' })
 
   assert.deepEqual(resolved, { index: 'product' })
+})
+
+test('lists every index holding an entity, the default-language one first', () => {
+  registerLocalizedIndex({ index: 'katalog', base: 'product', entity: 'product', locale: 'de-DE' })
+
+  const indexes = indexesForEntity({
+    available: ['product', 'katalog', 'category'],
+    entity: 'product',
+    base: 'product',
+  })
+
+  assert.deepEqual(indexes, [{ index: 'product' }, { index: 'katalog', locale: 'de-DE' }])
+})
+
+test('takes a registration over the naming convention, since a name is not evidence', () => {
+  registerLocalizedIndex({ index: 'product-reviews', base: 'product_review', entity: 'product_review' })
+
+  const indexes = indexesForEntity({ available: ['product', 'product-reviews'], entity: 'product', base: 'product' })
+
+  assert.deepEqual(indexes, [{ index: 'product' }])
 })

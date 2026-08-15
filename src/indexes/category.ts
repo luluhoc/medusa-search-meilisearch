@@ -6,7 +6,7 @@ import {
   eventEntityIds,
   isTranslationEvent,
   reconcileIds,
-  registerIndexLocale,
+  registerIndexDefinition,
   SearchEntity,
   SearchIndexFactoryOptions,
   streamEntities,
@@ -98,7 +98,7 @@ function buildCategorySearchIndex(
   options: SearchIndexFactoryOptions,
   base = 'category',
 ): SearchTypes.SearchIndexDefinition {
-  registerIndexLocale({ options, base, entity: 'product_category' })
+  registerIndexDefinition({ options, base, entity: 'product_category' })
 
   const fields = toFieldDefinitions(options.fields ?? search.define(categorySearchFields))
   const graphFields = options.graph_fields ?? categoryGraphFields
