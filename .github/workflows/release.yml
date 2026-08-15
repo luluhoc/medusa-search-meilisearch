@@ -123,12 +123,3 @@ jobs:
         run: npm publish --access public --provenance
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: Create the GitHub release
-        run: |
-          gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
-            --title "${{ github.event.inputs.tag || github.ref_name }}" \
-            --generate-notes \
-            --verify-tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
