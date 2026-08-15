@@ -7,6 +7,7 @@ import {
   wrapVariantsWithInventoryQuantityForSalesChannel,
   wrapProductsWithTaxPrices,
 } from '../../../utils/medusa'
+import { localizedSearch, requestLocale } from '../../../utils/locale'
 import { isSearchRequest, meiliParams, orderByRelevance, searchModule, searchOptions } from '../../../utils/search'
 import '../../../types'
 
@@ -52,12 +53,23 @@ export async function GET(req: MedusaRequest, res: MedusaResponse<ProductsRespon
   let totalCount = 0
 
   if (isSearch) {
-    const result = await searchModule(req).search({
-      entity: meili.index ?? 'product',
+    const search = searchModule(req)
+    // The locale that decides which language the products are read back in also
+    // decides which index is searched, so a storefront asks for a language once.
+    const { index, locales } = localizedSearch({
+      search,
+      base: 'product',
+      requested: meili.index,
+      locale: requestLocale(req),
+      language: meili.language,
+    })
+
+    const result = await search.search({
+      entity: index,
       fields: ['id'],
       filters: { q: meili.query },
       pagination: { skip: offset, take: limit },
-      search_options: searchOptions(meili),
+      search_options: searchOptions(meili, locales ? { locales } : undefined),
     })
 
     productIds = result.hits.map((hit) => {

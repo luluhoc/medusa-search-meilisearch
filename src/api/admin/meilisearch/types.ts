@@ -9,6 +9,13 @@
 export interface AdminSearchIndexInfo {
   name: string
 
+  /**
+   * The language this index holds, as a BCP 47 tag, for an index declared with
+   * `locales`. `null` for an index holding the default language, and for one
+   * declared without this package's factories, which have nothing to record it.
+   */
+  locale: string | null
+
   /** Exact document count, or `null` when Meilisearch could not answer for it. */
   document_count: number | null
 

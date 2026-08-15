@@ -2,12 +2,17 @@ import { SearchTypes } from '@medusajs/types'
 import { defineSearchIndex, ProductEvents, search } from '@medusajs/utils'
 import {
   DEFAULT_BATCH_SIZE,
+  defineIndexPerLocale,
   eventEntityIds,
+  isTranslationEvent,
   reconcileIds,
+  registerIndexLocale,
   SearchEntity,
   SearchIndexFactoryOptions,
   streamEntities,
   toFieldDefinitions,
+  translatedEntityIds,
+  translationSearchEvents,
 } from './common'
 
 /** The default product-category index fields. Spread it to add to them. */
@@ -69,8 +74,32 @@ const DEFAULT_FILTERS = { is_active: true, is_internal: false }
  *
  * export default defineCategorySearchIndex()
  * ```
+ *
+ * With `locales`, it declares one index per language on top of the default one —
+ * `category`, `category-fr-FR` — and returns all of them.
  */
-export function defineCategorySearchIndex(options: SearchIndexFactoryOptions = {}): SearchTypes.SearchIndexDefinition {
+export function defineCategorySearchIndex(
+  options?: SearchIndexFactoryOptions & { locales?: undefined },
+): SearchTypes.SearchIndexDefinition
+export function defineCategorySearchIndex(
+  options: SearchIndexFactoryOptions & { locales: string[] },
+): SearchTypes.SearchIndexDefinition[]
+export function defineCategorySearchIndex(
+  options: SearchIndexFactoryOptions = {},
+): SearchTypes.SearchIndexDefinition | SearchTypes.SearchIndexDefinition[] {
+  if (options.locales?.length) {
+    return defineIndexPerLocale({ options, index: 'category', build: buildCategorySearchIndex })
+  }
+
+  return buildCategorySearchIndex(options)
+}
+
+function buildCategorySearchIndex(
+  options: SearchIndexFactoryOptions,
+  base = 'category',
+): SearchTypes.SearchIndexDefinition {
+  registerIndexLocale({ options, base, entity: 'product_category' })
+
   const fields = toFieldDefinitions(options.fields ?? search.define(categorySearchFields))
   const graphFields = options.graph_fields ?? categoryGraphFields
   const filters = options.filters ?? DEFAULT_FILTERS
@@ -82,19 +111,26 @@ export function defineCategorySearchIndex(options: SearchIndexFactoryOptions = {
     })
 
   return defineSearchIndex({
-    name: options.name ?? 'category',
+    name: options.name ?? base,
     entity: 'product_category',
     provider: options.provider,
     fields,
     settings: options.settings,
-    events: options.events ?? categorySearchEvents,
+    // A localized index also has to follow the translations it holds; the
+    // default-language one has nothing to gain from them.
+    events:
+      options.events ?? (options.locale ? [...categorySearchEvents, ...translationSearchEvents] : categorySearchEvents),
     async consume(event, { container }) {
+      const ids = isTranslationEvent(event.name)
+        ? await translatedCategoryIds(container, eventEntityIds(event), options.locale)
+        : eventEntityIds(event)
+
       return reconcileIds({
         container,
         entity: 'product_category',
         fields: graphFields,
         filters,
-        ids: eventEntityIds(event),
+        ids,
         transform,
         locale: options.locale,
       })
@@ -113,4 +149,28 @@ export function defineCategorySearchIndex(options: SearchIndexFactoryOptions = {
       }
     },
   })
+}
+
+/**
+ * The categories a set of translation events is about. A translation for another
+ * entity — or for another language, which belongs to another index — resolves to
+ * nothing rather than to a needless reindex.
+ */
+async function translatedCategoryIds(
+  container: SearchTypes.SearchContainer,
+  translationIds: string[],
+  locale?: string,
+): Promise<string[]> {
+  if (!locale) {
+    return []
+  }
+
+  const references = await translatedEntityIds({
+    container,
+    ids: translationIds,
+    references: ['product_category'],
+    locale,
+  })
+
+  return references.product_category ?? []
 }

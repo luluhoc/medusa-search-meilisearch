@@ -1,6 +1,7 @@
 import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import { ProductCategoryDTO } from '@medusajs/types'
 import { ContainerRegistrationKeys } from '../../../utils/medusa'
+import { localizedSearch, requestLocale } from '../../../utils/locale'
 import { isSearchRequest, meiliParams, orderByRelevance, searchModule, searchOptions } from '../../../utils/search'
 import '../../../types'
 
@@ -35,12 +36,21 @@ export async function GET(req: MedusaRequest, res: MedusaResponse<CategoriesResp
   let totalCount = 0
 
   if (isSearch) {
-    const result = await searchModule(req).search({
-      entity: meili.index ?? 'category',
+    const search = searchModule(req)
+    const { index, locales } = localizedSearch({
+      search,
+      base: 'category',
+      requested: meili.index,
+      locale: requestLocale(req),
+      language: meili.language,
+    })
+
+    const result = await search.search({
+      entity: index,
       fields: ['id'],
       filters: { q: meili.query },
       pagination: { skip: offset, take: limit },
-      search_options: searchOptions(meili),
+      search_options: searchOptions(meili, locales ? { locales } : undefined),
     })
 
     categoryIds = result.hits.map((hit) => {

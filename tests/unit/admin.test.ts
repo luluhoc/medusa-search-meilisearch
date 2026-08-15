@@ -36,6 +36,7 @@ test('reports an index Meilisearch cannot answer for instead of failing the list
 
   assert.deepEqual(await describeIndex(search, 'product'), {
     name: 'product',
+    locale: null,
     document_count: null,
     error: 'Index `product` not found.',
   })
@@ -52,7 +53,7 @@ test('counts an index exhaustively, since an estimate is not an answer for an ad
   } as unknown as SearchTypes.ISearchModuleService
   const info = await describeIndex(search, 'product')
 
-  assert.deepEqual(info, { name: 'product', document_count: 128, error: null })
+  assert.deepEqual(info, { name: 'product', locale: null, document_count: 128, error: null })
   assert.equal(queries[0].search_options?.count, 'exact')
   assert.equal(queries[0].pagination?.take, 0)
 })

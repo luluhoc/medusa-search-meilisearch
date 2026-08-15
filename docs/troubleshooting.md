@@ -115,6 +115,26 @@ settings: {
 }
 ```
 
+## Searching in another language finds nothing
+
+Check, in order:
+
+1. **Is there an index for that language?** `GET /admin/meilisearch/indexes` lists every index with the language it holds. Without one for `fr-FR`, a French query is answered by the default index — which holds English text, and will not match `chemise`.
+2. **Are the documents actually translated?** The Translation Module needs the `translation` feature flag; without it `query.graph` ignores `locale` and every index seeds in the default language. Read one document back with `GET /admin/meilisearch/products/:id?index=product-fr-FR` — it shows what was indexed, not what should have been.
+3. **Was the language index seeded?** A newly declared index exists only after migrations run; before that the listing reports `Index ... not found` against its name.
+
+A French index that finds nothing for one recently translated product is a different problem: see below.
+
+## A translation edit did not reach the index
+
+Localized indexes reindex on translation events, so an edited French title should land within a moment. It will not when:
+
+- **The index declares its own `events`.** Replacing the list takes over routing entirely — include `translationSearchEvents` in it.
+- **The translation was deleted rather than edited.** The event carries the translation's id and the row is already gone when it arrives, so nothing can be resolved from it. Reindex that product, or the index, to drop the removed translation.
+- **The index has no `locale`.** An index that was never told which language it holds cannot tell whether a translation concerns it, so it ignores translation events entirely.
+
+See [multiple languages](i18n.md).
+
 ## Results are ranked oddly
 
 **Attribute order is the ranking.** Meilisearch ranks by the order of `searchableAttributes`, and this provider derives that order from your declared weights. If `sku` outranks `title`, its weight is higher.

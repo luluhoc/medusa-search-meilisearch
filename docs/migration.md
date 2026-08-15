@@ -21,7 +21,7 @@ That makes the move a hard one — v1 does not run on Medusa `2.19.0`, and this 
 | `container.resolve(MEILISEARCH_MODULE)`                | `container.resolve(Modules.SEARCH)`                                                |
 | `meilisearchService.search(index, query, opts)`        | `searchModule.search({ entity, filters: { q } })`                                  |
 | `/admin/meilisearch/*` and the admin settings page     | Removed — Medusa `2.19` has its own admin search endpoint                          |
-| `i18n.strategy: 'separate-index' \| 'field-suffix'`    | One index per language, or `settings.locales`                                      |
+| `i18n.strategy: 'separate-index' \| 'field-suffix'`    | `locales` on the factory, or `settings.locales`                                    |
 | Raw Meilisearch hits from `*-hits` routes              | The module's `{ hits, facets, metadata }` shape                                    |
 
 ## Step by step
@@ -184,7 +184,13 @@ The four `/store/meilisearch/*` routes are still there and still behave the same
 
 The old `separate-index` and `field-suffix` strategies are gone, because index naming belongs to the module now.
 
-`separate-index` becomes [one index per language](recipes.md#one-index-per-language) — the same idea, declared rather than configured, and fed by the Translation Module instead of by whatever populated the suffixed fields. Declare `locale: 'fr-FR'` on the index and Medusa substitutes that locale's text while seeding.
+`separate-index` becomes [one index per language](i18n.md) — the same idea, declared rather than configured, and fed by the Translation Module instead of by whatever populated the suffixed fields. `locales: ['fr-FR', 'de-DE']` on the factory declares the whole set, and the store routes pick between them by the request's `locale`:
+
+```ts
+export default defineProductSearchIndex({ default_locale: 'en-US', locales: ['fr-FR', 'de-DE'] })
+```
+
+The index names differ from the old plugin's — `product-fr-FR` rather than `products_fr` — so a storefront that hardcoded them should move to sending `?locale=fr-FR` instead, which no longer names an index at all.
 
 `field-suffix` has no direct equivalent. Either move to per-language indexes, or keep one index and declare `settings.locales` with a `locales` hint per query — the latter only changes tokenization, so a single index still holds a single language.
 

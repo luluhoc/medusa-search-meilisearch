@@ -2,6 +2,7 @@ import { MedusaRequest, MedusaResponse } from '@medusajs/framework'
 import { SearchTypes } from '@medusajs/types'
 import z from 'zod'
 import { MEILISEARCH_PROVIDER_KEY } from '../../providers/meilisearch/types'
+import { localizedSearch, requestLocale } from './locale'
 import { searchModule } from './search'
 
 const list = z.union([z.string(), z.array(z.string())]).optional()
@@ -66,7 +67,8 @@ function toOrder(sort: string | string[] | undefined): Record<string, SearchType
 
 /**
  * Shared handler for the raw-hits routes. `entity` is the index queried unless the
- * request names another one.
+ * request names another one — or asks for a language that has an index of its own,
+ * in which case `?locale=` routes to it.
  */
 export async function searchHits(
   req: MedusaRequest<unknown, SearchHitsParams>,
@@ -75,9 +77,17 @@ export async function searchHits(
 ) {
   const params = req.validatedQuery
   const facets = toArray(params.facets)
+  const search = searchModule(req)
+  const { index, locales } = localizedSearch({
+    search,
+    base: entity,
+    requested: params.index,
+    locale: requestLocale(req),
+    language: params.language,
+  })
 
-  const result = await searchModule(req).search({
-    entity: params.index ?? entity,
+  const result = await search.search({
+    entity: index,
     fields: toArray(params.fields),
     filters: { q: params.query },
     pagination: {
@@ -86,7 +96,7 @@ export async function searchHits(
       order: toOrder(params.sort),
     },
     search_options: {
-      ...(params.language ? { locales: [params.language] } : {}),
+      ...(locales ? { locales } : {}),
       ...(facets?.length ? { facets } : {}),
       ...(params.semanticSearch
         ? {

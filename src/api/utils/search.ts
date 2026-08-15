@@ -29,10 +29,13 @@ export function searchModule(req: MedusaRequest): SearchTypes.ISearchModuleServi
  * The search options every route shares. Semantic search is expressed as a vector
  * query against a named embedder; whether that embedder exists is the index'
  * business, and the provider says so if it does not.
+ *
+ * The tokenization language is not read off the params here: it depends on which
+ * index the request was routed to, which is settled in `localizedSearch` and
+ * passed in through `extra`.
  */
 export function searchOptions(params: MeiliParams, extra?: SearchTypes.SearchOptions): SearchTypes.SearchOptions {
   return {
-    ...(params.language ? { locales: [params.language] } : {}),
     ...(params.semanticSearch
       ? {
           vector: {

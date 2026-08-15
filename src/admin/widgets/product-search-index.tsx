@@ -84,7 +84,7 @@ const ProductSearchIndexWidget = ({ data }: DetailWidgetProps<AdminProduct>) => 
                 {indexes.data?.indexes.map((entry) => {
                   return (
                     <Select.Item key={entry.name} value={entry.name}>
-                      {entry.name}
+                      {entry.locale === null ? entry.name : `${entry.name} · ${entry.locale}`}
                     </Select.Item>
                   )
                 })}
@@ -136,6 +136,9 @@ const ProductSearchIndexWidget = ({ data }: DetailWidgetProps<AdminProduct>) => 
             ) : (
               <Text size="small" leading="compact">
                 {index}
+                {/* The language the index holds, for a catalogue indexed per locale:
+                    the same product is a different document in each of them. */}
+                {info?.locale !== null && info?.locale !== undefined ? ` · ${info.locale}` : ''}
                 {info?.document_count !== null && info?.document_count !== undefined
                   ? ` · ${info.document_count.toLocaleString()} documents`
                   : ''}

@@ -2,13 +2,18 @@ import { SearchTypes } from '@medusajs/types'
 import { defineSearchIndex, ProductEvents, search } from '@medusajs/utils'
 import {
   DEFAULT_BATCH_SIZE,
+  defineIndexPerLocale,
   eventEntityIds,
+  isTranslationEvent,
   reconcileIds,
+  registerIndexLocale,
   SearchEntity,
   SearchIndexFactoryOptions,
   streamEntities,
   toEntities,
   toFieldDefinitions,
+  translatedEntityIds,
+  translationSearchEvents,
 } from './common'
 
 /**
@@ -131,8 +136,36 @@ const DEFAULT_FILTERS = { status: 'published' }
  *
  * export default defineProductSearchIndex()
  * ```
+ *
+ * With `locales`, it declares one index per language on top of the default one —
+ * `product`, `product-fr-FR`, `product-de-DE` — and returns all of them:
+ *
+ * ```ts
+ * export default defineProductSearchIndex({ default_locale: 'en-US', locales: ['fr-FR', 'de-DE'] })
+ * ```
  */
-export function defineProductSearchIndex(options: SearchIndexFactoryOptions = {}): SearchTypes.SearchIndexDefinition {
+export function defineProductSearchIndex(
+  options?: SearchIndexFactoryOptions & { locales?: undefined },
+): SearchTypes.SearchIndexDefinition
+export function defineProductSearchIndex(
+  options: SearchIndexFactoryOptions & { locales: string[] },
+): SearchTypes.SearchIndexDefinition[]
+export function defineProductSearchIndex(
+  options: SearchIndexFactoryOptions = {},
+): SearchTypes.SearchIndexDefinition | SearchTypes.SearchIndexDefinition[] {
+  if (options.locales?.length) {
+    return defineIndexPerLocale({ options, index: 'product', build: buildProductSearchIndex })
+  }
+
+  return buildProductSearchIndex(options)
+}
+
+function buildProductSearchIndex(
+  options: SearchIndexFactoryOptions,
+  base = 'product',
+): SearchTypes.SearchIndexDefinition {
+  registerIndexLocale({ options, base, entity: 'product' })
+
   const fields = toFieldDefinitions(options.fields ?? search.define(productSearchFields))
   const graphFields = options.graph_fields ?? productGraphFields
   const filters = options.filters ?? DEFAULT_FILTERS
@@ -144,18 +177,25 @@ export function defineProductSearchIndex(options: SearchIndexFactoryOptions = {}
     })
 
   return defineSearchIndex({
-    name: options.name ?? 'product',
+    name: options.name ?? base,
     entity: 'product',
     provider: options.provider,
     fields,
     settings: options.settings,
-    events: options.events ?? productSearchEvents,
+    // A localized index also has to follow the translations it holds; the
+    // default-language one has nothing to gain from them.
+    events:
+      options.events ?? (options.locale ? [...productSearchEvents, ...translationSearchEvents] : productSearchEvents),
     async consume(event, { container }) {
       const ids = eventEntityIds(event)
       // A variant event names the variant, and what has to be reindexed is the
       // product holding it. A deleted variant cannot be looked up any more, so
       // that case resolves to nothing and waits for the product's own event.
-      const productIds = event.name.includes('variant') ? await resolveProductIds(container, ids) : ids
+      const productIds = isTranslationEvent(event.name)
+        ? await translatedProductIds(container, ids, options.locale)
+        : event.name.includes('variant')
+          ? await resolveProductIds(container, ids)
+          : ids
 
       return reconcileIds({
         container,
@@ -181,6 +221,32 @@ export function defineProductSearchIndex(options: SearchIndexFactoryOptions = {}
       }
     },
   })
+}
+
+/**
+ * The products a set of translation events is about. A product's document carries
+ * its variants' titles, so a variant translation reindexes the product holding
+ * it; anything translated in another language belongs to another index and is
+ * dropped here.
+ */
+async function translatedProductIds(
+  container: SearchTypes.SearchContainer,
+  translationIds: string[],
+  locale?: string,
+): Promise<string[]> {
+  if (!locale) {
+    return []
+  }
+
+  const references = await translatedEntityIds({
+    container,
+    ids: translationIds,
+    references: ['product', 'product_variant'],
+    locale,
+  })
+  const fromVariants = await resolveProductIds(container, references.product_variant ?? [])
+
+  return [...new Set([...(references.product ?? []), ...fromVariants])]
 }
 
 async function resolveProductIds(container: SearchTypes.SearchContainer, variantIds: string[]): Promise<string[]> {

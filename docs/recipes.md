@@ -4,7 +4,7 @@ Patterns that come up repeatedly, each one a complete `src/search/*.ts` file.
 
 - [Indexing prices](#indexing-prices)
 - [Categories and tags](#categories-and-tags)
-- [One index per language](#one-index-per-language)
+- [Several languages](#several-languages)
 - [An admin index alongside the storefront one](#an-admin-index-alongside-the-storefront-one)
 - [Indexing a custom entity](#indexing-a-custom-entity)
 - [Keeping derived data current](#keeping-derived-data-current)
@@ -68,7 +68,7 @@ await search.search({
 })
 ```
 
-**Several currencies.** Either one field per currency (`min_price_eur`, `min_price_usd`) on one index, or [one index per currency](#one-index-per-language) — same shape as the language recipe. The first keeps one index and grows its fields; the second keeps documents small.
+**Several currencies.** Either one field per currency (`min_price_eur`, `min_price_usd`) on one index, or [one index per currency](#several-languages) — same shape as the language recipe. The first keeps one index and grows its fields; the second keeps documents small.
 
 **Staying current** is the catch: a price change may not emit a product event. See [keeping derived data current](#keeping-derived-data-current).
 
@@ -115,70 +115,27 @@ graph_fields: [...productGraphFields, 'categories.description'],
 
 **The flattening caveat:** filtering on two sub-fields of an object array matches across _different_ elements. See [index definitions](index-definitions.md#nested-objects-and-what-meilisearch-cannot-do).
 
-## One index per language
+## Several languages
 
-An index holds the text it was seeded with, so searching in French means indexing in French. Declare one index per language, each with the locale to read entities in and the analyzer to tokenize them with:
+An index holds the text it was seeded with, so searching in French means indexing in French. Declare the languages and the factory declares one index per language, each read in that locale and tokenized by its own analyzer:
 
 ```ts
-// src/search/product-en.ts
+// src/search/product.ts
 import { defineProductSearchIndex } from '@luluhoc/medusa-search-meilisearch/indexes'
 
 export default defineProductSearchIndex({
-  name: 'product_en',
-  locale: 'en-US',
-  settings: { locales: ['eng'] },
+  default_locale: 'en-US',
+  locales: ['fr-FR', 'de-DE'],
 })
 ```
 
-```ts
-// src/search/product-fr.ts
-import { defineProductSearchIndex } from '@luluhoc/medusa-search-meilisearch/indexes'
-
-export default defineProductSearchIndex({
-  name: 'product_fr',
-  locale: 'fr-FR',
-  settings: { locales: ['fra'] },
-})
-```
-
-`locale` is passed to `query.graph` while seeding and while ingesting events, so the Translation Module substitutes that locale's text before the document is built — the same substitution `/store/products?locale=fr-FR` performs at read time. Nothing else about the definition changes: the fields, the filters and the events are the ones the default index uses.
-
-Query the one you want:
-
-```ts
-await search.search({ entity: 'product_fr', filters: { q: 'chemise' } })
-```
+The store routes then route a request to the index holding the language it asked for, so a storefront names a language rather than an index:
 
 ```bash
-curl '/store/meilisearch/products?query=chemise&index=product_fr&locale=fr-FR'
+curl '/store/meilisearch/products?query=chemise&locale=fr-FR'
 ```
 
-Pass `locale` as well as `index` on the hybrid routes: `index` picks which language is _searched_, `locale` picks which language is _returned_ from the database.
-
-**Prerequisites.** Translations live in Medusa's Translation Module, behind the `translation` feature flag:
-
-```ts
-// medusa-config.ts
-featureFlags: { translation: true },
-modules: [{ resolve: '@medusajs/medusa/translation' }],
-```
-
-Without the flag, `locale` is ignored and every index ends up holding the default language. Untranslated fields fall back to the default language per field, so a partially translated catalogue indexes cleanly.
-
-**Keeping them current.** Editing a translation does not emit a product event, so a translation-only change leaves the index stale until the product itself is touched. Either subscribe to the translation events as well:
-
-```ts
-export default defineProductSearchIndex({
-  name: 'product_fr',
-  locale: 'fr-FR',
-  settings: { locales: ['fra'] },
-  events: [...productSearchEvents, 'translation.created', 'translation.updated'],
-})
-```
-
-— noting that a translation event carries the translation's id and not the product's, so it needs a `consume` of its own to map one to the other — or rebuild the language indexes on a schedule.
-
-**The simpler alternative,** if your catalogue is not translated and you only want the right analyzer: keep one index, declare `settings: { locales: ['eng', 'fra'] }`, and pass `locales` per query. That changes tokenization, not content.
+Translations, tokenization, what happens to a language nobody indexed, and how translation edits reach the index are all in [multiple languages](i18n.md).
 
 ## An admin index alongside the storefront one
 

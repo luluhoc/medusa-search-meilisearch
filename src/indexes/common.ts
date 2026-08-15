@@ -1,4 +1,5 @@
 import { Event, SearchTypes } from '@medusajs/types'
+import { engineLocales, localeIndexName, normalizeLocaleTag, registerLocalizedIndex } from './locales'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -87,10 +88,183 @@ export interface SearchIndexFactoryOptions {
   locale?: string
 
   /**
+   * The languages to declare an index for, as BCP 47 tags, e.g.
+   * `['fr-FR', 'de-DE']`. One index is declared per locale — `product-fr-FR`,
+   * `product-de-DE` — each seeded and kept up to date in that language, on top of
+   * the default-language index the call already declares.
+   *
+   * Each localized index tokenizes in its own language and reindexes when a
+   * translation for it changes. The store routes route a request to the matching
+   * index by its `locale`, so a storefront asks for a language rather than for an
+   * index name.
+   *
+   * Requires the `translation` feature flag and the Translation Module; see
+   * [i18n](../../docs/i18n.md).
+   */
+  locales?: string[]
+
+  /**
+   * The language the default index already holds, e.g. `'en-US'`. Declaring it
+   * routes requests for that locale to the default index instead of looking for a
+   * localized copy that would only duplicate it.
+   *
+   * @default the entity's untranslated text
+   */
+  default_locale?: string
+
+  /**
    * Turns an entity from `query.graph` into the document to index. Defaults to the
    * entity itself, which is why `graph_fields` and `fields` are declared to match.
    */
   transform?: (entity: SearchEntity) => SearchTypes.SearchDocument
+}
+
+/**
+ * Translation changes, under both the workflow's name and the module's. Editing
+ * a translation changes no product, so a localized index that did not listen for
+ * these would hold the language it was seeded with until the entity itself was
+ * touched.
+ *
+ * Deletions are deliberately absent: the event carries the translation's id and
+ * the row is already gone by the time it arrives, so there is nothing left to
+ * resolve the entity from. A deleted translation is picked up by the next
+ * reindex of its entity.
+ */
+export const translationSearchEvents = [
+  'translation.created',
+  'translation.updated',
+  'translation.translation.created',
+  'translation.translation.updated',
+]
+
+/** Whether an event describes a translation rather than the entity itself. */
+export function isTranslationEvent(name: string): boolean {
+  return name.startsWith('translation.')
+}
+
+/** Entity ids by the table they were translated on; a table nothing was translated on is absent. */
+export type TranslatedIds = Record<string, string[] | undefined>
+
+/**
+ * The entities a set of translation events is about, narrowed to one locale.
+ * Translations are stored against the table they translate, so an event that
+ * concerns another entity — or another language's index — resolves to nothing
+ * rather than to a needless reindex.
+ *
+ * `references` names more than one table when a document is built from more than
+ * one: a product's document carries its variants' titles, so a variant
+ * translation has to reindex the product holding it.
+ */
+export async function translatedEntityIds({
+  container,
+  ids,
+  references,
+  locale,
+}: {
+  container: SearchTypes.SearchContainer
+  ids: string[]
+  references: string[]
+  locale: string
+}): Promise<TranslatedIds> {
+  const grouped: TranslatedIds = {}
+
+  if (!ids.length) {
+    return grouped
+  }
+
+  const { data } = await container.query.graph({
+    entity: 'translation',
+    fields: ['id', 'reference', 'reference_id', 'locale_code'],
+    filters: { id: ids },
+  })
+
+  for (const row of toEntities(data)) {
+    const reference = typeof row.reference === 'string' ? row.reference : undefined
+    const referenceId = typeof row.reference_id === 'string' ? row.reference_id : undefined
+    const code = typeof row.locale_code === 'string' ? normalizeLocaleTag(row.locale_code) : undefined
+
+    if (!reference || !referenceId || code !== locale || !references.includes(reference)) {
+      continue
+    }
+
+    grouped[reference] = [...new Set([...(grouped[reference] ?? []), referenceId])]
+  }
+
+  return grouped
+}
+
+/**
+ * Declares the default-language index a factory was asked for, plus one index per
+ * locale. Every localized index is the same definition read in another language:
+ * same fields, same filters, same events, so the only thing that differs between
+ * two languages is the text inside the documents.
+ */
+export function defineIndexPerLocale({
+  options,
+  index,
+  build,
+}: {
+  options: SearchIndexFactoryOptions
+  /** The default index' name when the caller did not choose one, e.g. `category`. */
+  index: string
+  build: (options: SearchIndexFactoryOptions, base: string) => SearchTypes.SearchIndexDefinition
+}): SearchTypes.SearchIndexDefinition[] {
+  const base = options.name ?? index
+
+  const localized = (options.locales ?? []).map((locale) => {
+    const tag = normalizeLocaleTag(locale)
+
+    return build(
+      {
+        ...options,
+        name: localeIndexName(base, tag),
+        locale: tag,
+        locales: undefined,
+        // The language the *default* index holds says nothing about this one.
+        default_locale: undefined,
+        // A declared `locales` is the caller's choice of analyzer and stays as it
+        // is; otherwise the index tokenizes in the language it holds.
+        settings: { ...options.settings, locales: options.settings?.locales ?? engineLocales(tag) },
+      },
+      base,
+    )
+  })
+
+  return [build({ ...options, locales: undefined }, base), ...localized]
+}
+
+/**
+ * Records which language an index holds, so that a request naming a locale can
+ * be routed to it. Every index declared with a locale registers — whether it came
+ * from a fan-out over `locales` or from a factory call written by hand — because
+ * routing a storefront's language is what the map is for, and an index named by
+ * hand is no less the French one for having been named `produits`.
+ *
+ * `default_locale` registers the same way: an index already holding a language
+ * has to answer for it, rather than let the request fall through to a localized
+ * copy that would only repeat it.
+ */
+export function registerIndexLocale({
+  options,
+  base,
+  entity,
+}: {
+  options: SearchIndexFactoryOptions
+  base: string
+  entity: string
+}): void {
+  const locale = options.locale ?? options.default_locale
+
+  if (!locale) {
+    return
+  }
+
+  registerLocalizedIndex({
+    index: options.name ?? base,
+    base,
+    entity,
+    locale: normalizeLocaleTag(locale),
+  })
 }
 
 /**

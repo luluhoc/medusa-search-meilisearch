@@ -38,6 +38,7 @@ That is the whole setup: declare it, run migrations, and the catalogue indexes i
 - **Zero-downtime rebuilds** — a changed schema is built beside the live index and swapped in once it is full
 - **One request per search** — facet counts and exact counts are batched into a single multi-search call
 - **Dates that actually work** — indexed as timestamps behind the scenes, because Meilisearch orders numbers and not strings
+- **Multiple languages** — one index per language declared in one line, each tokenized in its own language, kept current from translation events, and picked automatically from the request's `locale`
 - **Store endpoints** keeping native `/store/products` behaviour: pricing, tax, inventory and sales channels
 - **Honest failures** — anything Meilisearch cannot answer faithfully throws with the field or option to change, rather than returning something subtly different
 
@@ -110,6 +111,7 @@ The full walkthrough, including Docker and environment variables, is in [getting
 | [Store API](docs/store-api.md)                 | The four HTTP endpoints and when to use which                       |
 | [Admin](docs/admin.md)                         | The product widget, and the endpoints behind it                     |
 | [Semantic search](docs/semantic-search.md)     | Embedders, hybrid search, costs and caveats                         |
+| [Multiple languages](docs/i18n.md)             | One index per language, locale routing, translation events          |
 | [Recipes](docs/recipes.md)                     | Prices, multilingual indexes, admin indexes, type-ahead             |
 | [Troubleshooting](docs/troubleshooting.md)     | Why something is not indexed, and what each error means             |
 | [Migration](docs/migration.md)                 | Moving from `@rokmohar/medusa-plugin-meilisearch`                   |

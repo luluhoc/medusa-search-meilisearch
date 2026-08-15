@@ -149,6 +149,8 @@ defineProductSearchIndex({
 
 `searchableAttributes`, `filterableAttributes`, `sortableAttributes` and `displayedAttributes` are not settings you write — they are derived from the fields you declare. See [index definitions](index-definitions.md).
 
+`locales` is the analyzer, not the content: it changes how text is cut into words, not which language the documents hold. A catalogue that is actually translated wants one index per language, where each index sets this for itself — see [multiple languages](i18n.md).
+
 ### A note on `pagination.max_total_hits`
 
 Meilisearch will not return or count past this number, which defaults to `1000`. It caps `count: 'exact'` too, so a catalogue larger than that reports `1000` until you raise it. Raising it costs query time on deep pages.

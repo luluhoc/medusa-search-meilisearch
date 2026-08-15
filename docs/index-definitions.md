@@ -43,18 +43,20 @@ import { defineProductSearchIndex } from '@luluhoc/medusa-search-meilisearch/ind
 export default defineProductSearchIndex()
 ```
 
-| Option         | Default                      | Description                                                                    |
-| -------------- | ---------------------------- | ------------------------------------------------------------------------------ |
-| `name`         | `product` / `category`       | The index' name, and what queries address it by.                               |
-| `provider`     | the only registered provider | Which provider holds this index.                                               |
-| `fields`       | `productSearchFields`        | Field declarations, as a `search.define({ ... })` schema or plain definitions. |
-| `graph_fields` | `productGraphFields`         | The `query.graph` selection used to build documents.                           |
-| `filters`      | `{ status: 'published' }`    | What belongs in the index. Applied to seeding _and_ ingestion.                 |
-| `transform`    | identity                     | Turns an entity into a document.                                               |
-| `events`       | `productSearchEvents`        | Events to reindex on.                                                          |
-| `settings`     | —                            | Synonyms, stop words, typo tolerance, faceting, locales.                       |
-| `locale`       | —                            | The locale to read entities in, so the index holds that language's text.       |
-| `batch_size`   | `200`                        | Rows read per round trip while seeding.                                        |
+| Option           | Default                      | Description                                                                    |
+| ---------------- | ---------------------------- | ------------------------------------------------------------------------------ |
+| `name`           | `product` / `category`       | The index' name, and what queries address it by.                               |
+| `provider`       | the only registered provider | Which provider holds this index.                                               |
+| `fields`         | `productSearchFields`        | Field declarations, as a `search.define({ ... })` schema or plain definitions. |
+| `graph_fields`   | `productGraphFields`         | The `query.graph` selection used to build documents.                           |
+| `filters`        | `{ status: 'published' }`    | What belongs in the index. Applied to seeding _and_ ingestion.                 |
+| `transform`      | identity                     | Turns an entity into a document.                                               |
+| `events`         | `productSearchEvents`        | Events to reindex on.                                                          |
+| `settings`       | —                            | Synonyms, stop words, typo tolerance, faceting, locales.                       |
+| `locale`         | —                            | The locale to read entities in, so the index holds that language's text.       |
+| `locales`        | —                            | Declares one index per language on top of this one. See [i18n](i18n.md).       |
+| `default_locale` | —                            | The language this index already holds, so requests for it are served here.     |
+| `batch_size`     | `200`                        | Rows read per round trip while seeding.                                        |
 
 ### What the defaults index
 
@@ -300,3 +302,5 @@ export default defineProductSearchIndex({
 ```
 
 Each is a separate physical index, seeded and kept current independently, and addressed by its own `entity` in a query.
+
+For a copy per language, `locales` declares the whole set from one call and lets the store routes pick between them by the request's locale — see [multiple languages](i18n.md).

@@ -18,14 +18,14 @@ It answers the three questions a merchant asks when a product does not show up i
 | Row              | What it tells you                                                                                          |
 | ---------------- | ---------------------------------------------------------------------------------------------------------- |
 | Status           | `Indexed` or `Not indexed`, plus `Behind` when the stored document predates the product's last change      |
-| Index            | Which index was read, and how many documents it holds in total                                             |
+| Index            | Which index was read, the language it holds if it has one, and how many documents it holds in total        |
 | Indexed document | The stored document verbatim — including fields a custom definition adds, and excluding what it never sent |
 
 When the product is not indexed and is not published, the widget says so: the index definitions this package ships filter on `status: 'published'`, so a draft product is _supposed_ to be absent.
 
 `Behind` compares the document's `updated_at` against the product's. It is a signal, not a verdict — editing a variant changes what belongs in the document without moving the product's own `updated_at`, so a document can be behind without being flagged. A flagged document is always genuinely behind.
 
-**The index picker** appears when more than one index is declared, which is how a set of per-language indexes ([recipes](recipes.md)) is inspected one at a time. With a single index there is nothing to choose and it stays hidden.
+**The index picker** appears when more than one index is declared, which is how a set of per-language indexes ([i18n](i18n.md)) is inspected one at a time. Each entry carries the language its index holds, so `product-fr-FR` reads as French rather than as a name to decode. With a single index there is nothing to choose and it stays hidden.
 
 **Reindex** brings the product's documents back in line and waits for Meilisearch to apply the write, so the panel refreshes to what a search would return at that moment. It routes a `product.updated` event through the Search Module rather than writing the document directly, which means the index' own `consume` decides the outcome — a product that stopped matching the index' filters is _deleted_ from the index rather than left behind as a stale hit. Every index declaring that event is reconciled, so one press covers all of them.
 
@@ -33,7 +33,7 @@ An index whose definition replaces `events` may not declare `product.updated` at
 
 ## `GET /admin/meilisearch/indexes`
 
-Every index the Search Module has loaded, with an exact document count for each.
+Every index the Search Module has loaded, with an exact document count and the language it holds.
 
 ```bash
 curl http://localhost:9000/admin/meilisearch/indexes -H "Authorization: Bearer $TOKEN"
@@ -42,11 +42,13 @@ curl http://localhost:9000/admin/meilisearch/indexes -H "Authorization: Bearer $
 ```json
 {
   "indexes": [
-    { "name": "product", "document_count": 128, "error": null },
-    { "name": "product_fr", "document_count": null, "error": "Index `product_fr` not found." }
+    { "name": "product", "locale": "en-US", "document_count": 128, "error": null },
+    { "name": "product-fr-FR", "locale": "fr-FR", "document_count": null, "error": "Index `product-fr-FR` not found." }
   ]
 }
 ```
+
+`locale` is `null` for an index holding the default language, and for one declared without this package's factories, which have nothing to record it from.
 
 Counts are exact rather than estimated, because an admin comparing them against a product count is the one caller for whom "about 1000" is not an answer. Each index is counted separately, so a declared index that migrations have not created yet reports its own `error` instead of taking the listing down with it.
 

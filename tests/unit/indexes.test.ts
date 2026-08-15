@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { defineCategorySearchIndex } from '../../src/indexes/category'
 import { eventEntityIds } from '../../src/indexes/common'
+import { resolveLocalizedIndex } from '../../src/indexes/locales'
 import { defineProductSearchIndex } from '../../src/indexes/product'
 import { queryStub } from '../helpers'
 
@@ -37,9 +38,7 @@ test('takes a name, so several indexes can cover one entity', () => {
 
 test('reads ids off an event however Medusa emitted it', () => {
   const event = (data: unknown) =>
-    ({ name: 'product.updated', data }) as SearchTypes.SearchIndexDefinition extends never
-      ? never
-      : Parameters<NonNullable<ReturnType<typeof defineProductSearchIndex>['consume']>>[0]
+    ({ name: 'product.updated', data }) as Parameters<NonNullable<SearchTypes.SearchIndexDefinition['consume']>>[0]
 
   assert.deepEqual(eventEntityIds(event({ id: 'p1' })), ['p1'])
   assert.deepEqual(eventEntityIds(event([{ id: 'p1' }, { id: 'p2' }])), ['p1', 'p2'])
@@ -162,6 +161,126 @@ test('asks for no locale when none was declared, leaving the default language', 
   }
 
   assert.deepEqual(options[0], { locale: undefined })
+})
+
+test('declares one index per language, on top of the default one', () => {
+  const indexes = defineProductSearchIndex({ default_locale: 'en-US', locales: ['fr-FR', 'de-DE'] })
+
+  assert.deepEqual(
+    indexes.map((index) => {
+      return index.name
+    }),
+    ['product', 'product-fr-FR', 'product-de-DE'],
+  )
+  assert.deepEqual(indexes[1].settings?.locales, ['fr'])
+  assert.deepEqual(indexes[2].settings?.locales, ['de'])
+  // Same catalogue, same shape: only the language inside the documents differs.
+  assert.deepEqual(indexes[0].fields, indexes[1].fields)
+})
+
+test('keeps a declared analyzer rather than deriving one from the locale', () => {
+  const indexes = defineProductSearchIndex({ locales: ['fr-FR'], settings: { locales: ['fra', 'eng'] } })
+
+  assert.deepEqual(indexes[1].settings?.locales, ['fra', 'eng'])
+})
+
+test('fans a renamed index out under its own name', () => {
+  const indexes = defineCategorySearchIndex({ name: 'catalog_category', locales: ['fr-FR'] })
+
+  assert.deepEqual(
+    indexes.map((index) => {
+      return index.name
+    }),
+    ['catalog_category', 'catalog_category-fr-FR'],
+  )
+})
+
+test('answers for the language the default index already holds, rather than for a copy of it', () => {
+  defineProductSearchIndex({ name: 'product_default_locale', default_locale: 'en-US', locales: ['fr-FR'] })
+
+  const english = resolveLocalizedIndex({
+    available: ['product_default_locale', 'product_default_locale-fr-FR'],
+    base: 'product_default_locale',
+    locale: 'en-US',
+  })
+  const french = resolveLocalizedIndex({
+    available: ['product_default_locale', 'product_default_locale-fr-FR'],
+    base: 'product_default_locale',
+    locale: 'fr-FR',
+  })
+
+  assert.equal(english, 'product_default_locale')
+  assert.equal(french, 'product_default_locale-fr-FR')
+})
+
+test('registers a hand-named index under its locale, so a request finds it without knowing its name', () => {
+  defineProductSearchIndex({ name: 'producten', locale: 'nl-NL' })
+
+  const index = resolveLocalizedIndex({ available: ['product', 'producten'], base: 'product', locale: 'nl-NL' })
+
+  assert.equal(index, 'producten')
+})
+
+test('follows translations only on the indexes whose language they change', () => {
+  const [base, french] = defineProductSearchIndex({ locales: ['fr-FR'] })
+
+  assert.equal(base.events?.includes('translation.updated'), false)
+  assert.ok(french.events?.includes('translation.updated'))
+  assert.ok(french.events?.includes('translation.translation.updated'))
+})
+
+test('reindexes the product a translation was written for, in the language that index holds', async () => {
+  const { container, calls } = queryStub([
+    [{ id: 'tr_1', reference: 'product', reference_id: 'p1', locale_code: 'fr-FR' }],
+    [{ id: 'p1', title: 'Chemise' }],
+  ])
+  const [, index] = defineProductSearchIndex({ name: 'product_i18n', locales: ['fr-FR'] })
+
+  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index })
+
+  assert.equal(calls[0].entity, 'translation')
+  assert.deepEqual(mutations, [{ action: 'upsert', documents: [{ id: 'p1', title: 'Chemise' }] }])
+})
+
+test('leaves an index alone when the translation that changed is in another language', async () => {
+  const { container, calls } = queryStub([
+    [{ id: 'tr_1', reference: 'product', reference_id: 'p1', locale_code: 'de-DE' }],
+  ])
+  const [, index] = defineProductSearchIndex({ name: 'product_other', locales: ['fr-FR'] })
+
+  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index })
+
+  // Nothing to reconcile, so the entity is never read back out of the database.
+  assert.equal(calls.length, 1)
+  assert.deepEqual(mutations, [])
+})
+
+test('reindexes the product holding a variant whose translation changed', async () => {
+  const { container, calls } = queryStub([
+    [{ id: 'tr_1', reference: 'product_variant', reference_id: 'v1', locale_code: 'fr-FR' }],
+    [{ id: 'v1', product_id: 'p9' }],
+    [{ id: 'p9', title: 'Chemise' }],
+  ])
+  const [, index] = defineProductSearchIndex({ name: 'product_variants_i18n', locales: ['fr-FR'] })
+
+  const mutations = await index.consume!({ name: 'translation.created', data: { id: 'tr_1' } }, { container, index })
+
+  assert.equal(calls[1].entity, 'product_variant')
+  assert.deepEqual(mutations, [{ action: 'upsert', documents: [{ id: 'p9', title: 'Chemise' }] }])
+})
+
+test('reindexes the category a translation was written for', async () => {
+  const { container, options } = queryStub([
+    [{ id: 'tr_1', reference: 'product_category', reference_id: 'c1', locale_code: 'fr-FR' }],
+    [{ id: 'c1', name: 'Chemises' }],
+  ])
+  const [, index] = defineCategorySearchIndex({ locales: ['fr-FR'] })
+
+  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index })
+
+  assert.deepEqual(mutations, [{ action: 'upsert', documents: [{ id: 'c1', name: 'Chemises' }] }])
+  // The entity is read back in the index' own language, not the default one.
+  assert.deepEqual(options[1], { locale: 'fr-FR' })
 })
 
 test('indexes only browsable categories by default', () => {

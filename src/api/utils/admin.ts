@@ -1,5 +1,6 @@
 import { SearchTypes } from '@medusajs/types'
 import { MedusaError } from '@medusajs/utils'
+import { indexLocale } from '../../indexes/locales'
 import { AdminIndexedDocumentResponse, AdminSearchIndexInfo } from '../admin/meilisearch/types'
 
 /** The index an admin route reads from when the request names none. */
@@ -49,6 +50,8 @@ export async function describeIndex(
   search: SearchTypes.ISearchModuleService,
   name: string,
 ): Promise<AdminSearchIndexInfo> {
+  const locale = indexLocale(name) ?? null
+
   try {
     const result = await search.search({
       entity: name,
@@ -56,12 +59,12 @@ export async function describeIndex(
       search_options: { count: 'exact' },
     })
 
-    return { name, document_count: result.metadata.count, error: null }
+    return { name, locale, document_count: result.metadata.count, error: null }
   } catch (error) {
     // A declared index that migrations have not created yet does not exist in
     // Meilisearch, and neither does one whose engine lost its data. Reporting
     // that per index keeps one missing index from taking the listing down.
-    return { name, document_count: null, error: toMessage(error) }
+    return { name, locale, document_count: null, error: toMessage(error) }
   }
 }
 
