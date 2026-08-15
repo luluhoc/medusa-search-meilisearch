@@ -41,7 +41,10 @@ const SearchIndexHealthWidget = () => {
     queryKey: ['meilisearch', 'catalogue', 'product_category'],
     enabled: holds('product_category'),
     queryFn: async () => {
-      return sdk.admin.productCategory.list({ limit: 1, fields: 'id' })
+      // As with products, the filters the shipped category index declares. An
+      // unfiltered count would call every inactive and internal category missing
+      // from an index that is not supposed to hold them.
+      return sdk.admin.productCategory.list({ limit: 1, fields: 'id', is_active: true, is_internal: false })
     },
   })
 

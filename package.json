@@ -1,6 +1,6 @@
 {
   "name": "@luluhoc/medusa-search-meilisearch",
-  "version": "1.1.5",
+  "version": "1.1.6",
   "description": "Meilisearch search provider for the Medusa v2 Search Module",
   "author": "Lucjan Grzesik",
   "license": "MIT",

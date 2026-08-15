@@ -11,6 +11,14 @@ import { shadowPath } from './values'
  */
 const GEO_FIELD = '_geo'
 
+/**
+ * The `maxTotalHits` derived when nothing else declares one. Meilisearch's own
+ * default is 1000, which is below the size of an ordinary catalogue — high enough
+ * here that a count over a catalogue reads as a count, and bounded so a query
+ * asking for a page far past the end still costs something finite.
+ */
+const DEFAULT_MAX_TOTAL_HITS = 100_000
+
 export interface MeilisearchFieldPlan {
   path: string
   field: SearchTypes.SearchFieldDefinition
@@ -56,6 +64,33 @@ function fieldEmbedder(field: SearchTypes.SearchFieldDefinition): Record<string,
   const options: MeilisearchFieldOptions = field.provider_options?.[MEILISEARCH_PROVIDER_KEY] ?? {}
 
   return isRecord(options.embedder) ? options.embedder : undefined
+}
+
+/**
+ * Meilisearch caps `totalHits` — and how deep a caller can page — at
+ * `maxTotalHits`, and applies its default of 1000 silently: an exact count over a
+ * larger catalogue comes back as the number 1000, and a storefront paging through
+ * results dead-ends there. Answering "1000" for 10,000 documents is the kind of
+ * approximation this provider refuses everywhere else, so a catalogue-sized
+ * ceiling is derived when nothing declares one.
+ */
+function pagination(
+  settings: SearchTypes.SearchIndexSettings,
+  options: MeilisearchProviderOptions,
+): Settings['pagination'] {
+  const declared = settings.pagination?.max_total_hits
+
+  if (declared !== undefined) {
+    return { maxTotalHits: declared }
+  }
+
+  // The provider-wide `settings` option is spread *before* the derived settings,
+  // so a default emitted here would override the one setting it should defer to.
+  if (options.settings?.pagination) {
+    return undefined
+  }
+
+  return { maxTotalHits: DEFAULT_MAX_TOTAL_HITS }
 }
 
 /** Per-index Meilisearch settings, from `settings.provider_options.meilisearch`. */
@@ -234,7 +269,7 @@ export function buildIndexPlan(
       maxValuesPerFacet: settings.faceting.max_values_per_facet,
       sortFacetValuesBy: settings.faceting.sort_by ? { '*': settings.faceting.sort_by } : undefined,
     },
-    pagination: settings.pagination && { maxTotalHits: settings.pagination.max_total_hits },
+    pagination: pagination(settings, options),
     distinctAttribute: settings.distinct_attribute,
     localizedAttributes: settings.locales?.length
       ? [{ attributePatterns: ['*'], locales: settings.locales as Locale[] }]
@@ -252,8 +287,11 @@ export function buildIndexPlan(
       }),
     ),
     // Order matters: the definition wins over the provider-wide default, and a
-    // per-index escape hatch wins over both.
-    settings: prune({ ...options.settings, ...derived, ...indexOptions(settings) }),
+    // per-index escape hatch wins over both. The derived settings are pruned
+    // before they are merged rather than after, because a setting the definition
+    // never declared arrives here as `undefined` — and an undefined that outranks
+    // the provider-wide option would delete it instead of deferring to it.
+    settings: prune({ ...options.settings, ...prune({ ...derived }), ...indexOptions(settings) }),
   }
 }
 

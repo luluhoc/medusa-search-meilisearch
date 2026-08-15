@@ -53,6 +53,30 @@ test('translates index settings to their Meilisearch equivalents', () => {
   assert.deepEqual(plan.settings.synonyms, { tee: ['t-shirt'] })
 })
 
+test('raises maxTotalHits past a catalogue, since Meilisearch caps counts at it', () => {
+  const plan = buildIndexPlan(productDefinition({ settings: {} }), OPTIONS)
+
+  assert.deepEqual(plan.settings.pagination, { maxTotalHits: 100_000 })
+})
+
+test('leaves a provider-wide pagination option alone rather than deriving over it', () => {
+  const plan = buildIndexPlan(productDefinition({ settings: {} }), {
+    ...OPTIONS,
+    settings: { pagination: { maxTotalHits: 2000 } },
+  })
+
+  assert.deepEqual(plan.settings.pagination, { maxTotalHits: 2000 })
+})
+
+test('keeps a provider-wide setting the definition never declared, rather than clearing it', () => {
+  const plan = buildIndexPlan(productDefinition({ settings: {} }), {
+    ...OPTIONS,
+    settings: { synonyms: { tee: ['t-shirt'] } },
+  })
+
+  assert.deepEqual(plan.settings.synonyms, { tee: ['t-shirt'] })
+})
+
 test('lets a per-index escape hatch win over everything derived', () => {
   const plan = buildIndexPlan(productDefinition(), { ...OPTIONS, settings: { proximityPrecision: 'byWord' } })
 

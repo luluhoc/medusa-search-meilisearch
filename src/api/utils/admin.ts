@@ -52,6 +52,11 @@ export function resolveIndexName(available: string[], requested?: string): strin
  * One index and how many documents it holds. The count is asked for exhaustively
  * rather than estimated — an admin comparing it against a product count is the
  * one caller for whom "about 1000" is not an answer.
+ *
+ * Exhaustive only up to the index' `maxTotalHits`, which Meilisearch also caps
+ * `totalHits` at. The provider derives that ceiling well above a catalogue for
+ * exactly this reason, but an index whose settings predate that — or that pins a
+ * lower ceiling — reports the ceiling instead of its size.
  */
 export async function describeIndex(
   search: SearchTypes.ISearchModuleService,

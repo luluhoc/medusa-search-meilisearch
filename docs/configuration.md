@@ -153,7 +153,17 @@ defineProductSearchIndex({
 
 ### A note on `pagination.max_total_hits`
 
-Meilisearch will not return or count past this number, which defaults to `1000`. It caps `count: 'exact'` too, so a catalogue larger than that reports `1000` until you raise it. Raising it costs query time on deep pages.
+Meilisearch will not return or count past this number, and its own default is `1000`. That cap applies to `count: 'exact'` as well, so an engine left on the default reports exactly `1000` for a catalogue of any larger size — in search results, in the store routes, and in the admin index listing.
+
+Because a count that stops being a count is worse than no count, this provider derives `100000` when neither the index definition nor the provider-wide `settings` option declares one. Set `pagination.max_total_hits` yourself to pin a different ceiling; lowering it saves query time on deep pages, at the cost of counts above it.
+
+Existing indexes do not pick this up on their own: `db:migrate` skips an index whose definition has not changed, so the setting is applied on the next migration that does touch it, on the next `reindex()`, or immediately with
+
+```bash
+curl -X PATCH 'http://localhost:7700/indexes/product/settings/pagination' \
+  -H 'Authorization: Bearer <KEY>' -H 'Content-Type: application/json' \
+  --data '{ "maxTotalHits": 100000 }'
+```
 
 ## Worker mode
 
@@ -172,4 +182,4 @@ In production, additionally:
 
 - A Meilisearch key scoped to write, not the master key
 - `index_prefix` if the instance is shared
-- `pagination.max_total_hits` raised past your catalogue size if you rely on exact counts
+- `pagination.max_total_hits` pinned past your catalogue size if the derived `100000` does not cover it

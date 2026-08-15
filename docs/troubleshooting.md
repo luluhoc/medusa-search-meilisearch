@@ -183,6 +183,19 @@ Both environments pointed at one Meilisearch instance with no prefix. Set one pe
 
 `index_prefix` changes the physical index name, so expect a rebuild after adding it.
 
+## Every index reports exactly 1,000 documents
+
+Not a seeding failure — a cap. Meilisearch refuses to count past `pagination.maxTotalHits`, whose engine default is `1000`, and the admin listing counts by asking the engine. An index holding 10,000 documents reports `1000`, and so does one holding 1,001.
+
+Ask the engine for the real number, which comes from stats rather than from a search and is never capped:
+
+```bash
+curl 'http://localhost:7700/stats' -H 'Authorization: Bearer <KEY>' \
+  | jq '.indexes | to_entries[] | {index: .key, docs: .value.numberOfDocuments}'
+```
+
+Current versions of this provider derive `100000` so this does not happen. An index created before that keeps its old settings, because `db:migrate` skips an index whose definition has not changed — see [`pagination.max_total_hits`](configuration.md#a-note-on-paginationmax_total_hits) for how to apply it to one.
+
 ## Reindexing is slow
 
 - Raise `reindex.batch_size` (default 100) — fewer, larger writes.
