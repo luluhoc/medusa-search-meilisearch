@@ -1,0 +1,83 @@
+{
+  "name": "@luluhoc/medusa-search-meilisearch",
+  "version": "1.0.0",
+  "description": "Meilisearch search provider for the Medusa v2 Search Module",
+  "author": "Lucjan Grzesik",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/luluhoc/medusa-search-meilisearch.git"
+  },
+  "bugs": {
+    "url": "https://github.com/luluhoc/medusa-search-meilisearch/issues"
+  },
+  "homepage": "https://github.com/luluhoc/medusa-search-meilisearch#readme",
+  "keywords": [
+    "medusa",
+    "medusa-v2",
+    "medusa-plugin",
+    "medusa-search",
+    "medusa-search-provider",
+    "meilisearch",
+    "search",
+    "faceted-search",
+    "semantic-search"
+  ],
+  "files": [
+    ".medusa/server/src",
+    "LICENSE",
+    "README.md"
+  ],
+  "main": ".medusa/server/src/index.js",
+  "types": ".medusa/server/src/index.d.ts",
+  "exports": {
+    "./package.json": "./package.json",
+    "./providers/meilisearch": "./.medusa/server/src/providers/meilisearch/index.js",
+    "./indexes": "./.medusa/server/src/indexes/index.js",
+    ".": "./.medusa/server/src/index.js"
+  },
+  "scripts": {
+    "build": "medusa plugin:build",
+    "dev": "medusa plugin:develop",
+    "prepublishOnly": "medusa plugin:build",
+    "typecheck": "tsc --noEmit --pretty --project tsconfig.json",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --cache --cache-strategy content",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix --cache --cache-strategy content",
+    "format": "prettier --check \"**/*.{ts,tsx,js,jsx,json,md}\" --cache --cache-strategy content --log-level warn",
+    "format:fix": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\" --cache --cache-strategy content --log-level warn",
+    "test": "node --test --require ts-node/register \"tests/unit/*.test.ts\"",
+    "test:integration": "node --test --require ts-node/register \"tests/integration/*.test.ts\""
+  },
+  "dependencies": {
+    "meilisearch": "^0.56.0"
+  },
+  "devDependencies": {
+    "@medusajs/cli": "^2.19.0",
+    "@medusajs/framework": "^2.19.0",
+    "@medusajs/medusa": "^2.19.0",
+    "@medusajs/search": "^2.19.0",
+    "@swc/core": "^1.15.33",
+    "@types/node": "^22",
+    "awilix": "^8.0.1",
+    "eslint": "^9.39.4",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-unused-imports": "^4.4.1",
+    "globals": "^16",
+    "prettier": "^3.8.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.59.3",
+    "yalc": "^1.0.0-pre.53",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@medusajs/framework": "^2.19.0",
+    "@medusajs/medusa": "^2.19.0",
+    "awilix": "^8.0.1"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "yarn@4.14.1"
+}

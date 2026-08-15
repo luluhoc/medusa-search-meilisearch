@@ -1,0 +1,101 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Lint, typecheck, test, build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Format
+        run: yarn format
+
+      - name: Lint
+        run: yarn lint
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Unit tests
+        run: yarn test
+
+      - name: Build
+        run: yarn build
+
+      - name: Check the package contents
+        run: npm pack --dry-run
+
+  integration:
+    name: Integration (Meilisearch ${{ matrix.meilisearch }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        # The oldest version this package supports, and the current one. The
+        # floor matters: settings like facetSearch and prefixSearch only exist
+        # from 1.12, and a filter compiled against a newer syntax fails loudly
+        # rather than silently, which is exactly what we want to catch here.
+        meilisearch: ['v1.12', 'latest']
+
+    services:
+      meilisearch:
+        image: getmeili/meilisearch:${{ matrix.meilisearch }}
+        ports:
+          - 7700:7700
+        env:
+          MEILI_MASTER_KEY: testkey
+          MEILI_NO_ANALYTICS: 'true'
+          MEILI_ENV: development
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Wait for Meilisearch
+        run: |
+          for attempt in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:7700/health > /dev/null; then
+              curl -s http://127.0.0.1:7700/version -H 'Authorization: Bearer testkey'
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Meilisearch did not become healthy in 60s"
+          exit 1
+
+      - name: Integration tests
+        run: yarn test:integration
+        env:
+          MEILISEARCH_TEST_HOST: http://127.0.0.1:7700
+          MEILISEARCH_TEST_API_KEY: testkey

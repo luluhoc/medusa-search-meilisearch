@@ -1,0 +1,131 @@
+name: Release
+
+# Tag a commit to release it:
+#
+#   npm version minor        # bumps package.json and creates the vX.Y.Z tag
+#   git push --follow-tags
+#
+# The tag has to match the version in package.json — the job refuses to publish
+# otherwise, so a mistyped tag fails before anything reaches npm.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing tag to publish, e.g. v1.0.0'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify
+    runs-on: ubuntu-latest
+
+    services:
+      meilisearch:
+        image: getmeili/meilisearch:latest
+        ports:
+          - 7700:7700
+        env:
+          MEILI_MASTER_KEY: testkey
+          MEILI_NO_ANALYTICS: 'true'
+          MEILI_ENV: development
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+
+      - run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Check the tag matches package.json
+        run: |
+          tag="${{ github.event.inputs.tag || github.ref_name }}"
+          version="v$(node -p "require('./package.json').version")"
+
+          if [ "$tag" != "$version" ]; then
+            echo "Tag $tag does not match package.json version $version"
+            exit 1
+          fi
+
+          echo "Releasing $version"
+
+      - run: yarn format
+      - run: yarn lint
+      - run: yarn typecheck
+      - run: yarn test
+      - run: yarn build
+
+      - name: Wait for Meilisearch
+        run: |
+          for attempt in $(seq 1 30); do
+            curl -sf http://127.0.0.1:7700/health > /dev/null && exit 0
+            sleep 2
+          done
+          echo "Meilisearch did not become healthy in 60s"
+          exit 1
+
+      - name: Integration tests
+        run: yarn test:integration
+        env:
+          MEILISEARCH_TEST_HOST: http://127.0.0.1:7700
+          MEILISEARCH_TEST_API_KEY: testkey
+
+  publish:
+    name: Publish to npm
+    needs: verify
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write # to create the GitHub release
+      id-token: write # to sign the npm package with provenance
+
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/@luluhoc/medusa-search-meilisearch
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.tag || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+          registry-url: https://registry.npmjs.org
+
+      - run: corepack enable
+
+      - name: Install
+        run: yarn install --immutable
+
+      - name: Build
+        run: yarn build
+
+      # --provenance publishes a signed, verifiable link between the tarball and
+      # the workflow run that produced it. It needs id-token: write, above.
+      - name: Publish
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create the GitHub release
+        run: |
+          gh release create "${{ github.event.inputs.tag || github.ref_name }}" \
+            --title "${{ github.event.inputs.tag || github.ref_name }}" \
+            --generate-notes \
+            --verify-tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
