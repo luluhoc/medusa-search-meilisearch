@@ -51,9 +51,13 @@ export async function localizedSearch({
 }): Promise<LocalizedSearch> {
   const routed = requested === undefined && locale !== undefined
   const index = routed
-    ? (resolveLocalizedIndex({ available: (await search.listIndexes()).map(({ name }) => {
-        return name
-      }), base, locale }) ?? base)
+    ? (resolveLocalizedIndex({
+        available: (await search.listIndexes()).map(({ name }) => {
+          return name
+        }),
+        base,
+        locale,
+      }) ?? base)
     : requested
   const resolved = index ?? base
   const locales = language ? [language] : routed && resolved !== base ? engineLocales(locale) : undefined

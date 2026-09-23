@@ -99,7 +99,16 @@ test('refuses a correlated field, which Meilisearch flattens away', () => {
   assert.throws(
     () =>
       assertIndexSupported(
-        productDefinition({ fields: { variants: { type: 'object', array: true, correlated: true, fields: {} } as SearchTypes.SearchFieldDefinition } }),
+        productDefinition({
+          fields: {
+            variants: {
+              type: 'object',
+              array: true,
+              correlated: true,
+              fields: {},
+            } as SearchTypes.SearchFieldDefinition,
+          },
+        }),
       ),
     /correlated/,
   )
