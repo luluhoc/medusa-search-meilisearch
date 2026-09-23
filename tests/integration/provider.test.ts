@@ -46,7 +46,7 @@ const definition: SearchTypes.ResolvedSearchIndexDefinition = {
     stop_words: ['the'],
     faceting: { max_values_per_facet: 100, sort_by: 'count' },
     pagination: { max_total_hits: 10000 },
-  },
+  } as SearchTypes.SearchIndexSettings,
   seed: async function* () {},
 }
 

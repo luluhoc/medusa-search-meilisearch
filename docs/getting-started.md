@@ -8,7 +8,7 @@ From nothing to a working product search in five steps.
 yarn add @luluhoc/medusa-search-meilisearch
 ```
 
-You need Medusa `2.19.0` or newer — that is the release the Search Module arrived in — and a Meilisearch instance on `1.12` or newer.
+You need Medusa `2.21.1` or newer and a Meilisearch instance on `1.12` or newer.
 
 For local development:
 

@@ -37,7 +37,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse<CategoriesResp
 
   if (isSearch) {
     const search = searchModule(req)
-    const { index, locales } = localizedSearch({
+    const { index, locales } = await localizedSearch({
       search,
       base: 'category',
       requested: meili.index,

@@ -1,4 +1,5 @@
 import { Event, SearchTypes } from '@medusajs/types'
+import type { MeilisearchSearchIndexSettings } from '../providers/meilisearch/types'
 import { engineLocales, localeIndexName, normalizeLocaleTag, registerLocalizedIndex } from './locales'
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -45,13 +46,13 @@ export interface SearchIndexFactoryOptions {
   provider?: string
 
   /**
-   * The index' fields, as plain definitions or a `search.define({ ... })` schema.
+   * The index' fields, as a `search.define({ ... })` schema.
    * Spread the exported defaults to add to them rather than replace them.
    */
   fields?: SearchTypes.SearchIndexFieldsInput
 
   /** Synonyms, stop words, typo tolerance, faceting, locales. */
-  settings?: SearchTypes.SearchIndexSettings
+  settings?: MeilisearchSearchIndexSettings
 
   /**
    * The events that change what belongs in this index. Replacing the default list
@@ -262,22 +263,6 @@ export function registerIndexDefinition({
     entity,
     ...(locale ? { locale: normalizeLocaleTag(locale) } : {}),
   })
-}
-
-/**
- * A DSL schema compiles to plain field definitions. Doing it here rather than
- * leaving it to `defineSearchIndex` keeps the documents a factory's `seed` yields
- * typed as plain search documents: inference off a DSL schema would type them
- * against fields the caller can replace wholesale.
- */
-export function toFieldDefinitions(
-  fields: SearchTypes.SearchIndexFieldsInput,
-): Record<string, SearchTypes.SearchFieldDefinition> {
-  return isFieldsSchema(fields) ? fields.toFields() : fields
-}
-
-function isFieldsSchema(fields: SearchTypes.SearchIndexFieldsInput): fields is SearchTypes.SearchFieldsSchemaLike {
-  return 'toFields' in fields && typeof fields.toFields === 'function'
 }
 
 /**

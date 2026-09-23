@@ -1,4 +1,14 @@
 import type { Config, Embedders, Settings } from 'meilisearch'
+import type { SearchTypes } from '@medusajs/types'
+
+/** Legacy per-index settings retained for existing plugin consumers. */
+export type MeilisearchSearchIndexSettings = SearchTypes.SearchIndexSettings & {
+  synonyms?: Record<string, string[]>
+  stop_words?: string[]
+  faceting?: { max_values_per_facet?: number; sort_by?: 'alpha' | 'count' }
+  pagination?: { max_total_hits?: number }
+  locales?: string[]
+}
 
 /**
  * Options passed to the provider from the Search Module's `providers` entry:

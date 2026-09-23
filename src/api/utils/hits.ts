@@ -78,7 +78,7 @@ export async function searchHits(
   const params = req.validatedQuery
   const facets = toArray(params.facets)
   const search = searchModule(req)
-  const { index, locales } = localizedSearch({
+  const { index, locales } = await localizedSearch({
     search,
     base: entity,
     requested: params.index,

@@ -11,6 +11,17 @@ import { resolveLocalizedIndex } from '../../src/indexes/locales'
 import { defineProductSearchIndex } from '../../src/indexes/product'
 import { queryStub } from '../helpers'
 
+function resolvedIndex(index: SearchTypes.SearchIndexDefinition): SearchTypes.ResolvedSearchIndexDefinition {
+  return {
+    ...index,
+    primary_key: index.primary_key ?? 'id',
+    provider: index.provider ?? 'meilisearch',
+    settings: index.settings ?? {},
+    physical_name: index.name,
+    definition_hash: 'test-hash',
+  }
+}
+
 test('declares the fields a storefront needs, with sensible weights', () => {
   const index = defineProductSearchIndex()
 
@@ -56,14 +67,14 @@ test('seeds by id rather than by offset, so a long run cannot skip rows', async 
     [{ id: 'p3', title: 'Three' }],
   ])
   const index = defineProductSearchIndex({ batch_size: 2 })
-  const seeded: SearchTypes.SearchDocument[] = []
+  const seeded: SearchTypes.SearchMutation[] = []
 
-  for await (const batch of index.seed({ container, index })) {
+  for await (const batch of index.seed({ container, index: resolvedIndex(index) })) {
     seeded.push(...batch)
   }
 
   assert.deepEqual(
-    seeded.map((document) => document.id),
+    seeded.flatMap((mutation) => mutation.action === 'upsert' ? mutation.documents.map((document) => document.id) : []),
     ['p1', 'p2', 'p3'],
   )
   assert.deepEqual(calls[0].filters, { status: 'published' })
@@ -75,7 +86,7 @@ test('resumes an interrupted seed from the last key', async () => {
   const { container, calls } = queryStub([[{ id: 'p9', title: 'Nine' }]])
   const index = defineProductSearchIndex()
 
-  for await (const _ of index.seed({ container, index, last_key: 'p8' })) {
+  for await (const _ of index.seed({ container, index: resolvedIndex(index), last_key: 'p8' })) {
     // drain
   }
 
@@ -90,7 +101,7 @@ test('upserts what still matches and deletes what does not', async () => {
     { name: 'product.updated', data: [{ id: 'p1' }, { id: 'gone' }] },
     {
       container,
-      index,
+       index: resolvedIndex(index),
     },
   )
 
@@ -108,7 +119,7 @@ test('removes a product that stopped matching the index filters', async () => {
     { name: 'product.updated', data: { id: 'unpublished' } },
     {
       container,
-      index,
+       index: resolvedIndex(index),
     },
   )
 
@@ -123,7 +134,7 @@ test('resolves a variant event back to the product holding it', async () => {
     { name: 'product.product-variant.updated', data: { id: 'v1' } },
     {
       container,
-      index,
+       index: resolvedIndex(index),
     },
   )
 
@@ -136,7 +147,7 @@ test('reads entities in the index locale, so a per-language index holds that lan
   const { container, options } = queryStub([[{ id: 'p1', title: 'Chemise' }]])
   const index = defineProductSearchIndex({ name: 'product_fr', locale: 'fr-FR' })
 
-  for await (const _ of index.seed({ container, index })) {
+  for await (const _ of index.seed({ container, index: resolvedIndex(index) })) {
     // drain
   }
 
@@ -147,7 +158,7 @@ test('reindexes an updated entity in the same locale it was seeded in', async ()
   const { container, options } = queryStub([[{ id: 'p1', title: 'Chemise' }]])
   const index = defineProductSearchIndex({ locale: 'fr-FR' })
 
-  await index.consume!({ name: 'product.updated', data: { id: 'p1' } }, { container, index })
+  await index.consume!({ name: 'product.updated', data: { id: 'p1' } }, { container, index: resolvedIndex(index) })
 
   assert.deepEqual(options[0], { locale: 'fr-FR' })
 })
@@ -156,7 +167,7 @@ test('asks for no locale when none was declared, leaving the default language', 
   const { container, options } = queryStub([[{ id: 'p1', title: 'Shirt' }]])
   const index = defineProductSearchIndex()
 
-  for await (const _ of index.seed({ container, index })) {
+  for await (const _ of index.seed({ container, index: resolvedIndex(index) })) {
     // drain
   }
 
@@ -172,8 +183,8 @@ test('declares one index per language, on top of the default one', () => {
     }),
     ['product', 'product-fr-FR', 'product-de-DE'],
   )
-  assert.deepEqual(indexes[1].settings?.locales, ['fr'])
-  assert.deepEqual(indexes[2].settings?.locales, ['de'])
+  assert.deepEqual((indexes[1].settings as { locales?: string[] })?.locales, ['fr'])
+  assert.deepEqual((indexes[2].settings as { locales?: string[] })?.locales, ['de'])
   // Same catalogue, same shape: only the language inside the documents differs.
   assert.deepEqual(indexes[0].fields, indexes[1].fields)
 })
@@ -181,7 +192,7 @@ test('declares one index per language, on top of the default one', () => {
 test('keeps a declared analyzer rather than deriving one from the locale', () => {
   const indexes = defineProductSearchIndex({ locales: ['fr-FR'], settings: { locales: ['fra', 'eng'] } })
 
-  assert.deepEqual(indexes[1].settings?.locales, ['fra', 'eng'])
+  assert.deepEqual((indexes[1].settings as { locales?: string[] })?.locales, ['fra', 'eng'])
 })
 
 test('fans a renamed index out under its own name', () => {
@@ -236,7 +247,7 @@ test('reindexes the product a translation was written for, in the language that 
   ])
   const [, index] = defineProductSearchIndex({ name: 'product_i18n', locales: ['fr-FR'] })
 
-  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index })
+  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index: resolvedIndex(index) })
 
   assert.equal(calls[0].entity, 'translation')
   assert.deepEqual(mutations, [{ action: 'upsert', documents: [{ id: 'p1', title: 'Chemise' }] }])
@@ -248,7 +259,7 @@ test('leaves an index alone when the translation that changed is in another lang
   ])
   const [, index] = defineProductSearchIndex({ name: 'product_other', locales: ['fr-FR'] })
 
-  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index })
+  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index: resolvedIndex(index) })
 
   // Nothing to reconcile, so the entity is never read back out of the database.
   assert.equal(calls.length, 1)
@@ -263,7 +274,7 @@ test('reindexes the product holding a variant whose translation changed', async 
   ])
   const [, index] = defineProductSearchIndex({ name: 'product_variants_i18n', locales: ['fr-FR'] })
 
-  const mutations = await index.consume!({ name: 'translation.created', data: { id: 'tr_1' } }, { container, index })
+  const mutations = await index.consume!({ name: 'translation.created', data: { id: 'tr_1' } }, { container, index: resolvedIndex(index) })
 
   assert.equal(calls[1].entity, 'product_variant')
   assert.deepEqual(mutations, [{ action: 'upsert', documents: [{ id: 'p9', title: 'Chemise' }] }])
@@ -276,7 +287,7 @@ test('reindexes the category a translation was written for', async () => {
   ])
   const [, index] = defineCategorySearchIndex({ locales: ['fr-FR'] })
 
-  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index })
+  const mutations = await index.consume!({ name: 'translation.updated', data: { id: 'tr_1' } }, { container, index: resolvedIndex(index) })
 
   assert.deepEqual(mutations, [{ action: 'upsert', documents: [{ id: 'c1', name: 'Chemises' }] }])
   // The entity is read back in the index' own language, not the default one.

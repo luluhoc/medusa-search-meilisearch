@@ -107,8 +107,8 @@ test('answers for every index holding products, so a language that is missing on
   registerLocalizedIndex({ index: 'produits', base: 'product', entity: 'product', locale: 'fr-FR' })
 
   const search = {
-    listIndexes: () => {
-      return ['product', 'produits', 'category']
+    listIndexes: async () => {
+      return ['product', 'produits', 'category'].map((name) => ({ name }))
     },
     search: async (query: SearchTypes.SearchQuery) => {
       return {
@@ -132,8 +132,8 @@ test('answers for every index holding products, so a language that is missing on
 
 test('reports an index that cannot be read without hiding the languages that can', async () => {
   const search = {
-    listIndexes: () => {
-      return ['product', 'product-de-DE']
+    listIndexes: async () => {
+      return ['product', 'product-de-DE'].map((name) => ({ name }))
     },
     search: async (query: SearchTypes.SearchQuery) => {
       if (query.entity === 'product-de-DE') {
@@ -157,8 +157,8 @@ test('reports an index that cannot be read without hiding the languages that can
 
 test('dates an indexed copy from the document, and says nothing when the definition does not index the field', async () => {
   const search = {
-    listIndexes: () => {
-      return ['product']
+    listIndexes: async () => {
+      return [{ name: 'product' }]
     },
     search: async () => {
       return { hits: [{ id: 'prod_1', document: { id: 'prod_1' } }], metadata: { skip: 0, take: 1, count: null } }

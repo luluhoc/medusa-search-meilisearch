@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
+import { SearchTypes } from '@medusajs/types'
 import { assertIndexSupported, buildIndexPlan } from '../../src/providers/meilisearch/utils/definition'
 import { OPTIONS, productDefinition } from '../helpers'
 
@@ -98,7 +99,7 @@ test('refuses a correlated field, which Meilisearch flattens away', () => {
   assert.throws(
     () =>
       assertIndexSupported(
-        productDefinition({ fields: { variants: { type: 'object', array: true, correlated: true, fields: {} } } }),
+        productDefinition({ fields: { variants: { type: 'object', array: true, correlated: true, fields: {} } as SearchTypes.SearchFieldDefinition } }),
       ),
     /correlated/,
   )

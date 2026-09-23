@@ -115,7 +115,9 @@ export async function describeCoverage(
   search: SearchTypes.ISearchModuleService,
   { entity, base, id }: { entity: string; base: string; id: string },
 ): Promise<AdminIndexCoverageResponse> {
-  const indexes = indexesForEntity({ available: search.listIndexes(), entity, base })
+  const indexes = indexesForEntity({ available: (await search.listIndexes()).map(({ name }) => {
+    return name
+  }), entity, base })
   const entries = await Promise.all(
     indexes.map(async (entry) => {
       return coverageEntry(search, entry, id)

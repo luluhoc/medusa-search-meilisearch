@@ -162,7 +162,7 @@ export class MeilisearchSearchProviderService extends AbstractSearchProviderServ
    * count expands into — goes to Meilisearch's multi-search route as a single
    * request.
    */
-  async searchMany(inputs: SearchTypes.ProviderSearchQuery[]): Promise<SearchTypes.SearchResult[]> {
+  override async searchMany(inputs: SearchTypes.ProviderSearchQuery[]): Promise<SearchTypes.SearchResult[]> {
     const planned = inputs.map((input) => {
       return planSearch(input, buildIndexPlan(input.index, this.options_))
     })

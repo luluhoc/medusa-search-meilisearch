@@ -19,8 +19,8 @@ import {
 /** A Search Module stub that knows nothing but which indexes were loaded. */
 function moduleWith(indexes: string[]): SearchTypes.ISearchModuleService {
   return {
-    listIndexes: () => {
-      return indexes
+    listIndexes: async () => {
+      return indexes.map((name) => ({ name }))
     },
   } as unknown as SearchTypes.ISearchModuleService
 }
@@ -107,8 +107,8 @@ test('serves a region nobody indexed from the language that was', () => {
   assert.equal(index, 'product-de')
 })
 
-test('searches the index holding the language the request asked for', () => {
-  const resolved = localizedSearch({
+test('searches the index holding the language the request asked for', async () => {
+  const resolved = await localizedSearch({
     search: moduleWith(['product', 'product-fr-FR']),
     base: 'product',
     locale: 'fr-FR',
@@ -117,8 +117,8 @@ test('searches the index holding the language the request asked for', () => {
   assert.deepEqual(resolved, { index: 'product-fr-FR', locales: ['fr'] })
 })
 
-test('falls back to the default index rather than answering nothing in an unindexed language', () => {
-  const resolved = localizedSearch({
+test('falls back to the default index rather than answering nothing in an unindexed language', async () => {
+  const resolved = await localizedSearch({
     search: moduleWith(['product', 'product-fr-FR']),
     base: 'product',
     locale: 'it-IT',
@@ -127,8 +127,8 @@ test('falls back to the default index rather than answering nothing in an uninde
   assert.deepEqual(resolved, { index: 'product' })
 })
 
-test('leaves a named index the language it declared', () => {
-  const resolved = localizedSearch({
+test('leaves a named index the language it declared', async () => {
+  const resolved = await localizedSearch({
     search: moduleWith(['product', 'product-de-DE']),
     base: 'product',
     requested: 'product-de-DE',
@@ -138,8 +138,8 @@ test('leaves a named index the language it declared', () => {
   assert.deepEqual(resolved, { index: 'product-de-DE' })
 })
 
-test('lets an explicit language override the one the locale implies', () => {
-  const resolved = localizedSearch({
+test('lets an explicit language override the one the locale implies', async () => {
+  const resolved = await localizedSearch({
     search: moduleWith(['product', 'product-fr-FR']),
     base: 'product',
     locale: 'fr-FR',
@@ -149,8 +149,8 @@ test('lets an explicit language override the one the locale implies', () => {
   assert.deepEqual(resolved, { index: 'product-fr-FR', locales: ['eng'] })
 })
 
-test('searches the default index in its own language when no locale was asked for', () => {
-  const resolved = localizedSearch({ search: moduleWith(['product', 'product-fr-FR']), base: 'product' })
+test('searches the default index in its own language when no locale was asked for', async () => {
+  const resolved = await localizedSearch({ search: moduleWith(['product', 'product-fr-FR']), base: 'product' })
 
   assert.deepEqual(resolved, { index: 'product' })
 })

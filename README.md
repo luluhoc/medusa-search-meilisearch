@@ -46,10 +46,10 @@ That is the whole setup: declare it, run migrations, and the catalogue indexes i
 
 | Package                               | Version  | Medusa    | Meilisearch |
 | ------------------------------------- | -------- | --------- | ----------- |
-| `@luluhoc/medusa-search-meilisearch`  | `^1.0.0` | `^2.19.0` | `>= 1.12`   |
+| `@luluhoc/medusa-search-meilisearch`  | `^1.1.8` | `^2.21.1` | `>= 1.12`   |
 | `@rokmohar/medusa-plugin-meilisearch` | `^1.4.1` | `^2.15.2` | `>= 1.5`    |
 
-Medusa `2.19.0` removed the search interface the older plugin was built on and replaced it with the Search Module. This package targets that module, so it needs `2.19.0` or newer — see [migration](docs/migration.md).
+Medusa `2.19.0` introduced the Search Module. Version `1.1.8` of this plugin uses the index schema and asynchronous APIs from Medusa `2.21.1` or newer — see [migration](docs/migration.md).
 
 ## Quick start
 

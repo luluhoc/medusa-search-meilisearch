@@ -47,7 +47,7 @@ export default defineProductSearchIndex()
 | ---------------- | ---------------------------- | ------------------------------------------------------------------------------ |
 | `name`           | `product` / `category`       | The index' name, and what queries address it by.                               |
 | `provider`       | the only registered provider | Which provider holds this index.                                               |
-| `fields`         | `productSearchFields`        | Field declarations, as a `search.define({ ... })` schema or plain definitions. |
+| `fields`         | `productSearchFields`        | Field declarations as a `search.define({ ... })` schema.                       |
 | `graph_fields`   | `productGraphFields`         | The `query.graph` selection used to build documents.                           |
 | `filters`        | `{ status: 'published' }`    | What belongs in the index. Applied to seeding _and_ ingestion.                 |
 | `transform`      | identity                     | Turns an entity into a document.                                               |
@@ -199,7 +199,7 @@ filters: {}                                            // everything, e.g. for a
 
 ### `seed`
 
-An async generator that yields batches. The factories page by id — ordered and resumable — rather than by offset, because a seed of a large catalogue takes time and an offset would skip or repeat rows as documents are written underneath it.
+An async generator that yields batches of search mutations. The factories page by id — ordered and resumable — rather than by offset, because a seed of a large catalogue takes time and an offset would skip or repeat rows as documents are written underneath it.
 
 `last_key` is the id of the last document of an interrupted run, which is what lets a failed seed resume rather than restart.
 
@@ -219,7 +219,7 @@ async *seed({ container, filters, last_key }) {
 
     if (!data.length) return
 
-    yield data
+    yield [{ action: 'upsert', documents: data }]
     cursor = data[data.length - 1].id
 
     if (data.length < 200) return

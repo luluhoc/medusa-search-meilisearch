@@ -11,7 +11,6 @@ import {
   SearchIndexFactoryOptions,
   streamEntities,
   toEntities,
-  toFieldDefinitions,
   translatedEntityIds,
   translationSearchEvents,
 } from './common'
@@ -166,7 +165,7 @@ function buildProductSearchIndex(
 ): SearchTypes.SearchIndexDefinition {
   registerIndexDefinition({ options, base, entity: 'product' })
 
-  const fields = toFieldDefinitions(options.fields ?? search.define(productSearchFields))
+  const fields = options.fields ?? search.define(productSearchFields)
   const graphFields = options.graph_fields ?? productGraphFields
   const filters = options.filters ?? DEFAULT_FILTERS
   const take = options.batch_size ?? DEFAULT_BATCH_SIZE
@@ -217,7 +216,7 @@ function buildProductSearchIndex(
         last_key: lastKey,
         locale: options.locale,
       })) {
-        yield batch.map(transform)
+        yield [{ action: 'upsert', documents: batch.map(transform) }]
       }
     },
   })

@@ -36,7 +36,7 @@ export interface LocalizedSearch {
  * index. An index named outright keeps the language it declared, and an explicit
  * `language` overrides either.
  */
-export function localizedSearch({
+export async function localizedSearch({
   search,
   base,
   requested,
@@ -48,9 +48,13 @@ export function localizedSearch({
   requested?: string
   locale?: string
   language?: string
-}): LocalizedSearch {
+}): Promise<LocalizedSearch> {
   const routed = requested === undefined && locale !== undefined
-  const index = routed ? (resolveLocalizedIndex({ available: search.listIndexes(), base, locale }) ?? base) : requested
+  const index = routed
+    ? (resolveLocalizedIndex({ available: (await search.listIndexes()).map(({ name }) => {
+        return name
+      }), base, locale }) ?? base)
+    : requested
   const resolved = index ?? base
   const locales = language ? [language] : routed && resolved !== base ? engineLocales(locale) : undefined
 

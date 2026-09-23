@@ -80,7 +80,7 @@ function sort(input: SearchTypes.ProviderSearchQuery, plan: MeilisearchIndexPlan
 }
 
 function highlight(options: SearchTypes.SearchOptions): Partial<SearchParams> {
-  const requested = options.highlight
+  const requested = options.highlight === true ? { fields: ['*'] } : options.highlight
 
   if (!requested) {
     return {}
@@ -119,15 +119,19 @@ function matchingStrategy(options: SearchTypes.SearchOptions): SearchParams['mat
   }
 }
 
-function vector(options: SearchTypes.SearchOptions): Partial<SearchParams> {
+function vector(options: SearchTypes.SearchOptions, plan: MeilisearchIndexPlan): Partial<SearchParams> {
   if (!options.vector) {
     return {}
   }
 
   const { field, value, semantic_ratio: semanticRatio } = options.vector
+  const vectorFields = [...plan.fields.values()].filter(({ field: definition }) => {
+    return definition.type === 'vector'
+  })
+  const embedder = field ?? (vectorFields.length === 1 ? vectorFields[0].path : 'default')
 
   return {
-    hybrid: { embedder: field, semanticRatio },
+    hybrid: { embedder, semanticRatio },
     ...(value ? { vector: value } : {}),
   }
 }
@@ -240,7 +244,7 @@ export function planSearch(input: SearchTypes.ProviderSearchQuery, plan: Meilise
     rankingScoreThreshold: options.min_score,
     locales: (options.locales ?? plan.settings.localizedAttributes?.[0]?.locales) as Locale[] | undefined,
     ...highlight(options),
-    ...vector(options),
+    ...vector(options, plan),
     // The escape hatch goes last, so a caller reaching for a Meilisearch feature
     // this interface does not model can override anything derived above.
     ...((options.provider_options?.[MEILISEARCH_PROVIDER_KEY] ?? {}) as Partial<SearchParams>),
@@ -348,7 +352,12 @@ function buildHighlights(
   hit: Record<string, unknown>,
   options: SearchTypes.SearchOptions,
 ): Record<string, string[]> | undefined {
-  const fields = options.highlight?.fields
+  const fields =
+    options.highlight === true
+      ? Object.keys(isRecord(hit._formatted) ? hit._formatted : {})
+      : typeof options.highlight === 'object'
+        ? options.highlight.fields
+        : undefined
 
   if (!fields?.length) {
     return undefined

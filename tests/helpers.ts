@@ -1,5 +1,5 @@
 import { SearchTypes } from '@medusajs/types'
-import { MeilisearchProviderOptions } from '../src/providers/meilisearch/types'
+import { MeilisearchProviderOptions, MeilisearchSearchIndexSettings } from '../src/providers/meilisearch/types'
 
 export const OPTIONS: MeilisearchProviderOptions = {
   config: { host: 'http://127.0.0.1:7700', apiKey: 'test' },
@@ -46,7 +46,7 @@ export function productDefinition(
       pagination: { max_total_hits: 5000 },
       locales: ['eng'],
       provider_options: { meilisearch: { proximityPrecision: 'byAttribute' } },
-    },
+    } as MeilisearchSearchIndexSettings,
     seed: async function* () {},
     ...overrides,
   }

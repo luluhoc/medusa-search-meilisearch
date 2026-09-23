@@ -1,6 +1,6 @@
 {
   "name": "@luluhoc/medusa-search-meilisearch",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "description": "Meilisearch search provider for the Medusa v2 Search Module",
   "author": "Lucjan Grzesik",
   "license": "MIT",
@@ -59,14 +59,14 @@
     "meilisearch": "^0.56.0"
   },
   "devDependencies": {
-    "@medusajs/admin-sdk": "^2.19.0",
-    "@medusajs/cli": "^2.19.0",
-    "@medusajs/framework": "^2.19.0",
-    "@medusajs/icons": "^2.19.0",
-    "@medusajs/js-sdk": "^2.19.0",
-    "@medusajs/medusa": "^2.19.0",
-    "@medusajs/search": "^2.19.0",
-    "@medusajs/ui": "^4.2.1",
+    "@medusajs/admin-sdk": "^2.21.1",
+    "@medusajs/cli": "^2.21.1",
+    "@medusajs/framework": "^2.21.1",
+    "@medusajs/icons": "^2.21.1",
+    "@medusajs/js-sdk": "^2.21.1",
+    "@medusajs/medusa": "^2.21.1",
+    "@medusajs/search": "^2.21.1",
+    "@medusajs/ui": "^4.2.5",
     "@swc/core": "^1.15.33",
     "@tanstack/react-query": "5.64.2",
     "@types/node": "^22",
@@ -89,8 +89,8 @@
     "zod": "^3.25.76"
   },
   "peerDependencies": {
-    "@medusajs/framework": "^2.19.0",
-    "@medusajs/medusa": "^2.19.0",
+    "@medusajs/framework": "^2.21.1",
+    "@medusajs/medusa": "^2.21.1",
     "awilix": "^8.0.1"
   },
   "engines": {

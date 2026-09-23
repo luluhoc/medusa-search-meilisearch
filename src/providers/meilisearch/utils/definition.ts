@@ -1,7 +1,12 @@
 import { SearchTypes } from '@medusajs/types'
 import { MedusaError } from '@medusajs/utils'
 import type { Embedders, Locale, Settings } from 'meilisearch'
-import { MEILISEARCH_PROVIDER_KEY, MeilisearchFieldOptions, MeilisearchProviderOptions } from '../types'
+import {
+  MEILISEARCH_PROVIDER_KEY,
+  MeilisearchFieldOptions,
+  MeilisearchProviderOptions,
+  MeilisearchSearchIndexSettings,
+} from '../types'
 import { shadowPath } from './values'
 
 /**
@@ -75,7 +80,7 @@ function fieldEmbedder(field: SearchTypes.SearchFieldDefinition): Record<string,
  * ceiling is derived when nothing declares one.
  */
 function pagination(
-  settings: SearchTypes.SearchIndexSettings,
+  settings: MeilisearchSearchIndexSettings,
   options: MeilisearchProviderOptions,
 ): Settings['pagination'] {
   const declared = settings.pagination?.max_total_hits
@@ -110,7 +115,7 @@ function fail(message: string): never {
  */
 export function assertIndexSupported(definition: SearchTypes.ResolvedSearchIndexDefinition): void {
   for (const { path, field } of flattenFields(definition.fields)) {
-    if (field.correlated) {
+    if ((field as SearchTypes.SearchFieldDefinition & { correlated?: boolean }).correlated) {
       fail(
         `Field "${path}" on search index "${definition.name}" is declared correlated, which Meilisearch cannot express: it flattens arrays of objects, so a filter on two sub-fields matches across different elements`,
       )
@@ -235,7 +240,7 @@ export function buildIndexPlan(
     }
   })
 
-  const settings = definition.settings
+  const settings = definition.settings as MeilisearchSearchIndexSettings
 
   // A facet is a filter to Meilisearch — `facets` only works on an attribute that
   // is filterable — so facetable fields are registered alongside filterable ones.

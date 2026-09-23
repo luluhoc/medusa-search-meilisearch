@@ -12,7 +12,7 @@ import { AdminSearchIndexesResponse } from '../types'
 export async function GET(req: MedusaRequest, res: MedusaResponse<AdminSearchIndexesResponse>) {
   const search = searchModule(req)
   const indexes = await Promise.all(
-    search.listIndexes().map(async (name) => {
+    (await search.listIndexes()).map(async ({ name }) => {
       return describeIndex(search, name)
     }),
   )

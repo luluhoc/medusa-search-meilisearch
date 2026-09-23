@@ -9,7 +9,7 @@
  * `require()` and re-exported with hand-written types. This file is the single
  * coupling point — if a Medusa upgrade breaks these, fix them here only.
  *
- * Verified against @medusajs/medusa 2.19.0.
+ * Verified against @medusajs/medusa 2.21.1.
  */
 import type { MedusaRequest, MedusaResponse, MedusaNextFunction } from '@medusajs/framework'
 

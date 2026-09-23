@@ -56,7 +56,7 @@ export async function GET(req: MedusaRequest, res: MedusaResponse<ProductsRespon
     const search = searchModule(req)
     // The locale that decides which language the products are read back in also
     // decides which index is searched, so a storefront asks for a language once.
-    const { index, locales } = localizedSearch({
+    const { index, locales } = await localizedSearch({
       search,
       base: 'product',
       requested: meili.index,

@@ -43,7 +43,9 @@ export type AdminSearchParams = z.infer<typeof AdminSearchSchema>
 export async function GET(req: MedusaRequest<unknown, AdminSearchParams>, res: MedusaResponse<AdminSearchResponse>) {
   const params = req.validatedQuery
   const search = searchModule(req)
-  const index = resolveIndexName(search.listIndexes(), params.index)
+  const index = resolveIndexName((await search.listIndexes()).map(({ name }) => {
+    return name
+  }), params.index)
 
   res.json(
     await searchIndexed(search, {

@@ -10,7 +10,6 @@ import {
   SearchEntity,
   SearchIndexFactoryOptions,
   streamEntities,
-  toFieldDefinitions,
   translatedEntityIds,
   translationSearchEvents,
 } from './common'
@@ -100,7 +99,7 @@ function buildCategorySearchIndex(
 ): SearchTypes.SearchIndexDefinition {
   registerIndexDefinition({ options, base, entity: 'product_category' })
 
-  const fields = toFieldDefinitions(options.fields ?? search.define(categorySearchFields))
+  const fields = options.fields ?? search.define(categorySearchFields)
   const graphFields = options.graph_fields ?? categoryGraphFields
   const filters = options.filters ?? DEFAULT_FILTERS
   const take = options.batch_size ?? DEFAULT_BATCH_SIZE
@@ -145,7 +144,7 @@ function buildCategorySearchIndex(
         last_key: lastKey,
         locale: options.locale,
       })) {
-        yield batch.map(transform)
+        yield [{ action: 'upsert', documents: batch.map(transform) }]
       }
     },
   })

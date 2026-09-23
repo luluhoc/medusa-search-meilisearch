@@ -27,7 +27,9 @@ export async function GET(
   res: MedusaResponse<AdminIndexedDocumentResponse>,
 ) {
   const search = searchModule(req)
-  const index = resolveIndexName(search.listIndexes(), req.validatedQuery.index)
+  const index = resolveIndexName((await search.listIndexes()).map(({ name }) => {
+    return name
+  }), req.validatedQuery.index)
 
   res.json(await retrieveIndexedDocument(search, index, req.params.id))
 }
@@ -42,7 +44,9 @@ export async function POST(
   res: MedusaResponse<AdminIndexedDocumentResponse>,
 ) {
   const search = searchModule(req)
-  const index = resolveIndexName(search.listIndexes(), req.validatedQuery.index)
+  const index = resolveIndexName((await search.listIndexes()).map(({ name }) => {
+    return name
+  }), req.validatedQuery.index)
 
   await reindexEntity(search, { index, id: req.params.id, event: PRODUCT_UPDATED_EVENT })
 

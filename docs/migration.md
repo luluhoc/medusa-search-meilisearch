@@ -30,7 +30,7 @@ That makes the move a hard one — v1 does not run on Medusa `2.19.0`, and this 
 
 ```bash
 yarn remove @rokmohar/medusa-plugin-meilisearch
-yarn add @medusajs/medusa@^2.19.0 @medusajs/framework@^2.19.0 @luluhoc/medusa-search-meilisearch
+yarn add @medusajs/medusa@^2.21.1 @medusajs/framework@^2.21.1 @luluhoc/medusa-search-meilisearch@^1.1.8
 ```
 
 ### 2. Rewrite the config
